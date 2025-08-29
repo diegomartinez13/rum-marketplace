@@ -1,2 +1,4 @@
-django
-psycopg2-binary
+asgiref==3.9.1
+Django==5.0.14
+sqlparse==0.5.3
+psycopg[binary]==3.1.12
