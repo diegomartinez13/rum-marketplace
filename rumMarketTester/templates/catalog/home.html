@@ -1,0 +1,30 @@
+{% extends "_base.html" %}
+{% block content %}
+<nav class="cats">
+  <strong>Products:</strong>
+  {% for c in categories %}
+    <a href="?cat={{ c.id }}&q={{ q }}" class="{% if cat|default:'' == c.id|stringformat:'s' %}active{% endif %}">{{ c.name }}</a>
+  {% endfor %}
+</nav>
+
+<section class="grid">
+  {% for item in page.object_list %}
+  <article class="card">
+    <a href="#" class="listing-link" data-id="{{ item.id }}">
+      {% if item.image %}<img src="{{ item.image.url }}" alt="{{ item.title }}"/>{% endif %}
+      <div class="meta">
+        <div class="title">{{ item.title }}</div>
+        <div class="price">${{ item.price }}</div>
+        {% if item.exchange %}<div class="badge">exchange</div>{% endif %}
+      </div>
+    </a>
+  </article>
+  {% endfor %}
+</section>
+
+<div class="pager">
+  {% if page.has_previous %}<a href="?page={{ page.previous_page_number }}&q={{ q }}&cat={{ cat }}">‹ Prev</a>{% endif %}
+  <span>{{ page.number }}</span>
+  {% if page.has_next %}<a href="?page={{ page.next_page_number }}&q={{ q }}&cat={{ cat }}">Next ›</a>{% endif %}
+</div>
+{% endblock %}

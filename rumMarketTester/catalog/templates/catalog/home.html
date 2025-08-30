@@ -1,0 +1,20 @@
+{% extends "_base.html" %}
+{% block content %}
+<h2 style="padding:16px 16px 0">Products</h2>
+<section class="grid" style="padding:16px;">
+  {% for item in page.object_list %}
+    <article class="card">
+      <a href="#" class="listing-link" data-id="{{ item.id }}">
+        {% if item.image %}<img src="{{ item.image.url }}" alt="{{ item.title }}">{% endif %}
+        <div class="meta">
+          <div class="title">{{ item.title }}</div>
+          <div class="price">${{ item.price }}</div>
+          {% if item.exchange %}<div class="badge">exchange</div>{% endif %}
+        </div>
+      </a>
+    </article>
+  {% empty %}
+    <p>No listings yet. Add some in <a href="/admin/">/admin</a>.</p>
+  {% endfor %}
+</section>
+{% endblock %}
