@@ -20,7 +20,7 @@
   </ul>
 </div>
 
-<div align="center">
+<div>
   <h2>Setting up the Development Environment</h2>
   <h3>Prerequisites</h3>
   <ul>
@@ -38,6 +38,18 @@
     <li>Install dependencies: <code>pip install -r requirements.txt</code></li>
     <li>Start the development server: <code>docker-compose up -d</code> (add --build if needed)</li>
     <li>Access the application at <code>http://localhost:8000</code></li>
+  </ol>
+  <h3>Creating a Super User</h3>
+  <p>To create a super user, follow these steps:</p>
+  <ol>
+    <li>Run the following command: <code>docker-compose exec web python manage.py createsuperuser</code></li>
+    <li>Follow the prompts to enter a username, email, and password.</li>
+  </ol>
+  <h3>Migration</h3>
+  <p>To apply database migrations, run the following command:</p>
+  <ol>
+    <li>Run the following command: <code>docker-compose exec web python manage.py makemigrations</code></li>
+    <li>Run the following command: <code>docker-compose exec web python manage.py migrate</code></li>
   </ol>
 </div>
 
