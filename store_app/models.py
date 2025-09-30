@@ -18,7 +18,13 @@ class Customer(models.Model):
 # Product Category
 class ProductCategory(models.Model):
   name = models.CharField(max_length=50)
-  
+  slug = models.SlugField(max_length=50, unique=True)
+  description = models.TextField(max_length=250, default='', blank= True, null=True)
+  image = models.ImageField(upload_to="uploads/categories_images/", blank=True, null=True)
+  parent = models.ForeignKey('self', on_delete=models.SET_NULL, related_name='children', null=True, blank=True)
+  is_active = models.BooleanField(default=True)
+  created_at = models.DateTimeField(auto_now_add=True)
+
   def __str__(self) -> str:
     return self.name
   
@@ -32,14 +38,22 @@ class Product(models.Model):
   category = models.ForeignKey(ProductCategory, on_delete=models.CASCADE)
   description = models.TextField(max_length=250, default='', blank= True, null=True)
   image = models.ImageField(upload_to="uploads/products/")
-  
+  sale_price = models.DecimalField(default=Decimal('0.00'), decimal_places=2, max_digits= 6)
+  is_sale = models.BooleanField(default=False)
+
   def __str__(self) -> str:
     return self.name
 
 # Service Category
 class ServiceCategory(models.Model):
-  name = models.CharField(max_length=50)
-  
+  name = models.CharField(max_length=50, unique=True)
+  slug = models.SlugField(max_length=50, unique=True)
+  description = models.TextField(max_length=250, default='', blank= True, null=True)
+  image = models.ImageField(upload_to="uploads/categories_images/", blank=True, null=True)
+  parent = models.ForeignKey('self', on_delete=models.SET_NULL, related_name='children', null=True, blank=True)
+  is_active = models.BooleanField(default=True)
+  created_at = models.DateTimeField(auto_now_add=True)
+
   def __str__(self) -> str:
     return self.name
   
