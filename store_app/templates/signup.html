@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container">
+  <div class="row justify-content-center">
+    <div class="col-md-6 col-lg-4">
+      <div class="card shadow-lg border-0 rounded-lg mt-5 auth-card">
+        <div class="card-header">
+          <h3 class="text-center font-weight-light my-4">Create Account</h3>
+        </div>
+        <div class="card-body">
+          <form class="auth-form">
+            <div class="form-floating mb-3">
+              <input class="form-control" id="inputFirstName" type="text" placeholder="Enter your first name" />
+              <label for="inputFirstName">First name</label>
+            </div>
+            <div class="form-floating mb-3">
+              <input class="form-control" id="inputLastName" type="text" placeholder="Enter your last name" />
+              <label for="inputLastName">Last name</label>
+            </div>
+            <div class="form-floating mb-3">
+              <input class="form-control" id="inputEmail" type="email" placeholder="name@example.com" />
+              <label for="inputEmail">Email address</label>
+            </div>
+            <div class="form-floating mb-3">
+              <input class="form-control" id="inputPhone" type="tel" placeholder="Enter your phone number" />
+              <label for="inputPhone">Phone Number (Optional)</label>
+            </div>
+            <div class="form-floating mb-3">
+              <input class="form-control" id="inputPassword" type="password" placeholder="Create a password" />
+              <label for="inputPassword">Password</label>
+            </div>
+            <div class="form-floating mb-3">
+              <input class="form-control" id="inputPasswordConfirm" type="password" placeholder="Confirm password" />
+              <label for="inputPasswordConfirm">Confirm Password</label>
+            </div>
+            <div class="form-check mb-3">
+              <input class="form-check-input" id="inputTerms" type="checkbox" />
+              <label class="form-check-label" for="inputTerms">I agree to the <a href="#!">Terms and
+                  Conditions</a></label>
+            </div>
+            <div class="d-flex align-items-center justify-content-center mt-4 mb-0">
+              <button class="btn btn-primary" type="button" onclick="alert('Signup functionality coming soon!')">Create
+                Account</button>
+            </div>
+          </form>
+        </div>
+        <div class="card-footer text-center py-3">
+          <div class="small"><a href="{% url 'login' %}">Have an account? Go to sign in</a></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
