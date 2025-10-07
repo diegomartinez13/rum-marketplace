@@ -26,7 +26,12 @@ SECRET_KEY = 'django-insecure-tgt7(amsnzu(%ta*)i97g*n%k@wlr(jyft5pm$x+*jt$qzlz_q
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', 'rummarketplace.com', '167.99.172.156']
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", "0.0.0.0", "167.99.172.156", "rummarketplace.com", "www.rummarketplace.com"]
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://rummarketplace.com",
+    "https://www.rummarketplace.com",
+]
 
 
 # Application definition
