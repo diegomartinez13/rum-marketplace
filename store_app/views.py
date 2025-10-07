@@ -185,7 +185,7 @@ class VerifyEmailView(View):
                 },
             )
 
-        # If there�s already a real user with this email/username, block
+        # If there's already a real user with this email/username, block
         if User.objects.filter(email__iexact=pending.email).exists():
             pending.delete()
             return render(
