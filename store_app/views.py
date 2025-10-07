@@ -228,7 +228,7 @@ class VerifyEmailView(View):
             self.template_name,
             {
                 "status": "ok",
-                "message": "�Cuenta verificada! Ya puedes iniciar sesi�n.",
+                "message": "¡Cuenta verificada! Ya puedes iniciar sesión.",
                 "username": user.username,
             },
         )
