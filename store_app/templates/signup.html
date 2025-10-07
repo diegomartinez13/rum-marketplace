@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container">
+  <div class="row justify-content-center">
+    <div class="col-md-6 col-lg-4">
+      <div class="card shadow-lg border-0 rounded-lg mt-5 auth-card">
+        <div class="card-header">
+          <h3 class="text-center font-weight-light my-4">Create Account</h3>
+        </div>
+        <div class="card-body">
+
+          {# Show any Django messages (success/error) #}
+          {% if messages %}
+            <div class="mb-3">
+              {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+              {% endfor %}
+            </div>
+          {% endif %}
+
+          {# You can also render form.errors if you pass the form context #}
+          {% if form and form.non_field_errors %}
+            <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+          {% endif %}
+
+          <form class="auth-form" action="{% url 'signup' %}" method="post" novalidate>
+            {% csrf_token %}
+
+            <!-- OPTIONAL fields (not required by backend yet) -->
+            <div class="form-floating mb-3">
+              <input class="form-control" id="inputFirstName" name="first_name" type="text" placeholder="Enter your first name" />
+              <label for="inputFirstName">First name (optional)</label>
+            </div>
+            <div class="form-floating mb-3">
+              <input class="form-control" id="inputLastName" name="last_name" type="text" placeholder="Enter your last name" />
+              <label for="inputLastName">Last name (optional)</label>
+            </div>
+
+            <!-- REQUIRED by PreSignupForm -->
+            <div class="form-floating mb-3">
+              <input class="form-control" id="inputUsername" name="username" type="text" placeholder="Choose a username" required />
+              <label for="inputUsername">Username</label>
+            </div>
+
+            <div class="form-floating mb-3">
+              <input class="form-control" id="inputEmail" name="email" type="email"
+                     placeholder="name@upr.edu"
+                     required pattern="^[^@\\s]+@upr\\.edu$"
+                     title="Use your @upr.edu email" />
+              <label for="inputEmail">UPR Email (@upr.edu)</label>
+            </div>
+
+            <!-- OPTIONAL phone (ignored by backend for now) -->
+            <div class="form-floating mb-3">
+              <input class="form-control" id="inputPhone" name="phone" type="tel" placeholder="Enter your phone number" />
+              <label for="inputPhone">Phone Number (Optional)</label>
+            </div>
+
+            <div class="form-floating mb-3">
+              <input class="form-control" id="inputPassword" name="password" type="password" placeholder="Create a password" required />
+              <label for="inputPassword">Password</label>
+            </div>
+
+            <div class="form-floating mb-3">
+              <input class="form-control" id="inputPasswordConfirm" name="confirm_password" type="password" placeholder="Confirm password" required />
+              <label for="inputPasswordConfirm">Confirm Password</label>
+            </div>
+
+            <div class="form-check mb-3">
+              <input class="form-check-input" id="inputTerms" type="checkbox" required />
+              <label class="form-check-label" for="inputTerms">
+                I agree to the <a href="#!">Terms and Conditions</a>
+              </label>
+            </div>
+
+            <div class="d-flex align-items-center justify-content-center mt-4 mb-0">
+              <button class="btn btn-primary" type="submit">Create Account</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="card-footer text-center py-3">
+          <div class="small"><a href="{% url 'login' %}">Have an account? Go to sign in</a></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

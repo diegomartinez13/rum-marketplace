@@ -5,16 +5,26 @@ services:
     command: python /code/manage.py runserver 0.0.0.0:8000
     volumes:
       - .:/code
+      - ./staticfiles:/code/staticfiles
     ports:
       - 8000:8000
     depends_on:
       - db
+    environment:
+      - EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
+      - EMAIL_HOST=smtp.gmail.com
+      - EMAIL_PORT=587
+      - EMAIL_USE_TLS=true
+      - EMAIL_HOST_USER=rummarketplace@gmail.com
+      - EMAIL_HOST_PASSWORD=zbayknrczsoyfqmz
+      - DEFAULT_FROM_EMAIL=RUM Marketplace <rummarketplace@gmail.com>
   db:
     image: postgres:14
     volumes:
       - postgres_data:/var/lib/postgresql/data/
     environment:
       - "POSTGRES_HOST_AUTH_METHOD=trust"
+  
 
 volumes:
   postgres_data:
