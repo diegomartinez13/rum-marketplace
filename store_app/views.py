@@ -193,7 +193,7 @@ class VerifyEmailView(View):
                 self.template_name,
                 {
                     "status": "error",
-                    "message": "Esta cuenta ya fue activada o el email ya est� en uso.",
+                    "message": "Esta cuenta ya fue activada o el email ya está en uso.",
                 },
             )
         if User.objects.filter(username__iexact=pending.username).exists():
