@@ -2,10 +2,10 @@
 {% load static %}
 
 {% block content %}
-<div class="container">
+<div class="container-fluid align-items-center justify-content-center">
   <div class="row justify-content-center">
     <div class="col-md-6 col-lg-4">
-      <div class="card shadow-lg border-0 rounded-lg mt-5 auth-card">
+      <div class="card shadow-lg border-0 rounded-lg my-2 auth-card">
         <div class="card-header">
           <h3 class="text-center font-weight-light my-4">Create Account</h3>
         </div>
@@ -13,16 +13,16 @@
 
           {# Show any Django messages (success/error) #}
           {% if messages %}
-            <div class="mb-3">
-              {% for message in messages %}
-                <div class="alert alert-{{ message.tags }}">{{ message }}</div>
-              {% endfor %}
-            </div>
+          <div class="mb-3">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+            {% endfor %}
+          </div>
           {% endif %}
 
           {# You can also render form.errors if you pass the form context #}
           {% if form and form.non_field_errors %}
-            <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+          <div class="alert alert-danger">{{ form.non_field_errors }}</div>
           {% endif %}
 
           <form class="auth-form" action="{% url 'signup' %}" method="post" novalidate>
@@ -30,41 +30,45 @@
 
             <!-- OPTIONAL fields (not required by backend yet) -->
             <div class="form-floating mb-3">
-              <input class="form-control" id="inputFirstName" name="first_name" type="text" placeholder="Enter your first name" />
+              <input class="form-control" id="inputFirstName" name="first_name" type="text"
+                placeholder="Enter your first name" />
               <label for="inputFirstName">First name (optional)</label>
             </div>
             <div class="form-floating mb-3">
-              <input class="form-control" id="inputLastName" name="last_name" type="text" placeholder="Enter your last name" />
+              <input class="form-control" id="inputLastName" name="last_name" type="text"
+                placeholder="Enter your last name" />
               <label for="inputLastName">Last name (optional)</label>
             </div>
 
             <!-- REQUIRED by PreSignupForm -->
             <div class="form-floating mb-3">
-              <input class="form-control" id="inputUsername" name="username" type="text" placeholder="Choose a username" required />
+              <input class="form-control" id="inputUsername" name="username" type="text" placeholder="Choose a username"
+                required />
               <label for="inputUsername">Username</label>
             </div>
 
             <div class="form-floating mb-3">
-              <input class="form-control" id="inputEmail" name="email" type="email"
-                     placeholder="name@upr.edu"
-                     required pattern="^[^@\\s]+@upr\\.edu$"
-                     title="Use your @upr.edu email" />
+              <input class="form-control" id="inputEmail" name="email" type="email" placeholder="name@upr.edu" required
+                pattern="^[^@\\s]+@upr\\.edu$" title="Use your @upr.edu email" />
               <label for="inputEmail">UPR Email (@upr.edu)</label>
             </div>
 
             <!-- OPTIONAL phone (ignored by backend for now) -->
             <div class="form-floating mb-3">
-              <input class="form-control" id="inputPhone" name="phone" type="tel" placeholder="Enter your phone number" />
+              <input class="form-control" id="inputPhone" name="phone" type="tel"
+                placeholder="Enter your phone number" />
               <label for="inputPhone">Phone Number (Optional)</label>
             </div>
 
             <div class="form-floating mb-3">
-              <input class="form-control" id="inputPassword" name="password" type="password" placeholder="Create a password" required />
+              <input class="form-control" id="inputPassword" name="password" type="password"
+                placeholder="Create a password" required />
               <label for="inputPassword">Password</label>
             </div>
 
             <div class="form-floating mb-3">
-              <input class="form-control" id="inputPasswordConfirm" name="confirm_password" type="password" placeholder="Confirm password" required />
+              <input class="form-control" id="inputPasswordConfirm" name="confirm_password" type="password"
+                placeholder="Confirm password" required />
               <label for="inputPasswordConfirm">Confirm Password</label>
             </div>
 
