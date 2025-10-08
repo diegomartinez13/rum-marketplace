@@ -26,6 +26,9 @@ def home(request):
     products = Product.objects.all()
     return render(request, "home.html", {'products': products})
 
+def add_listing(request):
+    return render(request, "add_listing.html")
+
 def search(request):
     query = request.GET.get('q', '')
     if query:

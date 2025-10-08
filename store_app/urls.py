@@ -11,4 +11,5 @@ urlpatterns = [
     path("signup/", SignupView.as_view(), name="signup"),
     path("signup/thanks/", signup_thanks, name="signup-thanks"),
     path("verify/<str:token>/", VerifyEmailView.as_view(), name="verify-email"),
+    path("add-listing/", views.add_listing, name="add-listing"),
 ]

@@ -13,5 +13,81 @@
 
 <!-- Section-->
 
+<!-- Floating Add Listing Button -->
+<div class="floating-add-button">
+  <a href="{% url 'add-listing' %}" class="btn btn-success shadow-lg floating-btn">
+    <i class="bi bi-plus me-1" style="color: rgb(25, 135, 84);"></i>
+    <span style="font-weight: 600; color: rgb(25, 135, 84);">Add Listing</span>
+  </a>
+</div>
+
+<style>
+  .floating-add-button {
+    position: fixed;
+    bottom: 4vw;
+    right: 4vw;
+    z-index: 1000;
+    transition: transform 0.3s ease;
+  }
+
+  .floating-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    padding: 1vw 2vw;
+    border-radius: 2rem;
+    font-size: 1rem;
+    white-space: nowrap;
+  }
+
+  .floating-btn i {
+    font-size: 1.1em;
+  }
+
+  .floating-add-button:hover {
+    transform: scale(1.05);
+  }
+
+  .floating-add-button a:hover {
+    text-decoration: none;
+    background-color: #198754 !important;
+    border-color: #198754 !important;
+  }
+
+  .floating-add-button a:hover i,
+  .floating-add-button a:hover span {
+    color: white !important;
+  }
+
+  /* Mobile screens */
+  @media (max-width: 768px) {
+    .floating-add-button {
+      bottom: 3vw;
+      right: 3vw;
+    }
+
+    .floating-btn {
+      padding: 0.8vw 1.5vw;
+      font-size: 0.9rem;
+    }
+
+    .floating-btn i {
+      font-size: 1em;
+    }
+  }
+
+  /* Very small screens */
+  @media (max-width: 480px) {
+    .floating-btn {
+      padding: 0.6vw 1.2vw;
+      font-size: 0.8rem;
+    }
+
+    .floating-btn i {
+      font-size: 0.9em;
+    }
+  }
+</style>
 
 {% endblock %}

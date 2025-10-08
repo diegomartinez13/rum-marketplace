@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      <div class="card shadow-lg">
+        <div class="card-header bg-success text-white">
+          <h2 class="card-title mb-0 text-center">
+            <i class="bi bi-plus-circle me-2"></i>Add New Listing
+          </h2>
+        </div>
+        <div class="card-body p-4">
+          <div class="text-center mb-4">
+            <p class="lead text-muted">Create a new listing for your product or service</p>
+          </div>
+
+          <!-- Placeholder content for now -->
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <div class="card h-100 border-0 bg-light">
+                <div class="card-body text-center">
+                  <i class="bi bi-box-seam text-primary" style="font-size: 3rem;"></i>
+                  <h5 class="card-title mt-3">Product Listing</h5>
+                  <p class="card-text text-muted">Sell physical items like books, electronics, clothing, etc.</p>
+                  <button class="btn btn-outline-primary" disabled>
+                    <i class="bi bi-plus me-1"></i>Add Product
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-6 mb-3">
+              <div class="card h-100 border-0 bg-light">
+                <div class="card-body text-center">
+                  <i class="bi bi-tools text-success" style="font-size: 3rem;"></i>
+                  <h5 class="card-title mt-3">Service Listing</h5>
+                  <p class="card-text text-muted">Offer services like tutoring, photography, repairs, etc.</p>
+                  <button class="btn btn-outline-success" disabled>
+                    <i class="bi bi-plus me-1"></i>Add Service
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="text-center mt-4">
+            <a href="{% url 'home' %}" class="btn btn-secondary">
+              <i class="bi bi-arrow-left me-1"></i>Back to Home
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
