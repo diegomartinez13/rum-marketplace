@@ -1,5 +1,6 @@
 import secrets
+from django.utils import timezone
+from datetime import timedelta
 
-def generate_signup_token() -> str:
-    # 256-bit token, URL-safe hex
-    return secrets.token_hex(32)
+def new_email_token(hours_valid=1):
+    return secrets.token_hex(32), timezone.now() + timedelta(hours=hours_valid)
