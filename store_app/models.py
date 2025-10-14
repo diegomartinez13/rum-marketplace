@@ -8,31 +8,39 @@ from django.core.validators import RegexValidator
 # NOTE: For production, prefer a proper auth User. This is your current custom table.
 class User(models.Model):
     # existing fields ...
-    first_name     = models.CharField(max_length=50)
-    last_name      = models.CharField(max_length=100)
-    email          = models.EmailField(max_length=100, unique=True)
-    username       = models.CharField(max_length=150, unique=True)
-    password       = models.CharField(max_length=128)  # hashed only
-    phone_number   = models.CharField(max_length=20, blank=True)
-    is_seller      = models.BooleanField(default=False)
+    first_name = models.CharField(max_length=50)
+    last_name = models.CharField(max_length=100)
+    email = models.EmailField(max_length=100, unique=True)
+    username = models.CharField(max_length=150, unique=True)
+    password = models.CharField(max_length=128)  # hashed only
+    phone_number = models.CharField(max_length=20, blank=True)
+    is_seller = models.BooleanField(default=False)
     provides_service = models.BooleanField(default=False)
-    is_admin       = models.BooleanField(default=False)
+    is_admin = models.BooleanField(default=False)
 
     # NEW: email verification state
-    pendingemail   = models.BooleanField(default=True)      # gate access
-    email_token    = models.CharField(max_length=64, blank=True, null=True, db_index=True)
+    pendingemail = models.BooleanField(default=True)  # gate access
+    email_token = models.CharField(max_length=64, blank=True, null=True, db_index=True)
     email_token_expires_at = models.DateTimeField(blank=True, null=True)
-    verified_at    = models.DateTimeField(blank=True, null=True)
+    verified_at = models.DateTimeField(blank=True, null=True)
 
     def mark_verified(self):
         self.pendingemail = False
         self.verified_at = timezone.now()
         self.email_token = None
         self.email_token_expires_at = None
-        self.save(update_fields=["pendingemail","verified_at","email_token","email_token_expires_at"])
+        self.save(
+            update_fields=[
+                "pendingemail",
+                "verified_at",
+                "email_token",
+                "email_token_expires_at",
+            ]
+        )
 
     def set_password_raw(self, raw):
         self.password = make_password(raw)
+
 
 class ProductCategory(models.Model):
     name = models.CharField(max_length=50, unique=True)
@@ -267,7 +275,15 @@ class PurchaseHistory(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     cart = models.ForeignKey(Cart, on_delete=models.CASCADE)
     purchase_date = models.DateField(auto_now_add=True)
-    discounts_applied = models.DecimalField(default=Decimal('0.00'), decimal_places=2, max_digits=10)
-    total_amount = models.DecimalField(default=Decimal('0.00'), decimal_places=2, max_digits=10)
-    def __str__(self): return f"Purchase {self.id} by {self.user.id} on {self.purchase_date}"
-    class Meta: verbose_name_plural = "Purchase Histories"
+    discounts_applied = models.DecimalField(
+        default=Decimal("0.00"), decimal_places=2, max_digits=10
+    )
+    total_amount = models.DecimalField(
+        default=Decimal("0.00"), decimal_places=2, max_digits=10
+    )
+
+    def __str__(self):
+        return f"Purchase {self} by {self.user} on {self.purchase_date}"
+
+    class Meta:
+        verbose_name_plural = "Purchase Histories"

@@ -30,7 +30,7 @@
               <select class="form-select" id="category" name="category" required>
                 <option value="">Select a category</option>
                 {% for category in categories %}
-                  <option value="{{ category.id }}">{{ category.name }}</option>
+                <option value="{{ category.id }}">{{ category.name }}</option>
                 {% endfor %}
               </select>
             </div>
@@ -40,7 +40,7 @@
             </div>
             <div>
               <button type="submit" class="btn btn-primary text-white">Add Service</button>
-              <a href="{% url 'add-listing' %}" class="btn btn-outline-danger me-2">Cancel</a>
+              <a href="{% url 'store_app:add-listing' %}" class="btn btn-outline-danger me-2">Cancel</a>
             </div>
           </form>
         </div>

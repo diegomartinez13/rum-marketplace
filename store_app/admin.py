@@ -1,27 +1,39 @@
 from django.contrib import admin
 from .models import (
-    User, ProductCategory, Product,
-    ServiceCategory, Service,
-    ProductOrder, ServiceRequest,
-    Business, BusinessCategory,
-    Inventory, StockedProduct, StockedService,
-    Review, Cart, PurchaseHistory
+    User,
+    ProductCategory,
+    Product,
+    ServiceCategory,
+    Service,
+    ProductOrder,
+    ServiceRequest,
+    Business,
+    BusinessCategory,
+    Inventory,
+    StockedProduct,
+    StockedService,
+    Review,
+    Cart,
+    PurchaseHistory,
 )
+
 
 # Register your models here.
 @admin.register(ProductCategory)
 class ProductCategoryAdmin(admin.ModelAdmin):
-    list_display = ['name', 'slug', 'is_active', 'created_at']
-    search_fields = ['name', 'slug']
-    list_filter = ['is_active', 'created_at']
-    readonly_fields = ['created_at']
+    list_display = ["name", "slug", "is_active", "created_at"]
+    search_fields = ["name", "slug"]
+    list_filter = ["is_active", "created_at"]
+    readonly_fields = ["created_at"]
+
 
 @admin.register(ServiceCategory)
 class ServiceCategoryAdmin(admin.ModelAdmin):
-    list_display = ['name', 'slug', 'is_active', 'created_at']
-    search_fields = ['name', 'slug']
-    list_filter = ['is_active', 'created_at']
-    readonly_fields = ['created_at']
+    list_display = ["name", "slug", "is_active", "created_at"]
+    search_fields = ["name", "slug"]
+    list_filter = ["is_active", "created_at"]
+    readonly_fields = ["created_at"]
+
 
 admin.site.register(User)
 admin.site.register(Product)

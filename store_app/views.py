@@ -19,7 +19,6 @@ import secrets  # only if you still want a fallback; see note below
 from .forms import PreSignupForm
 from .models import (
     User,
-   
     Product,
     ProductCategory,
     Service,
@@ -32,7 +31,15 @@ logger = logging.getLogger(__name__)
 
 def home(request):
     products = Product.objects.all()
-    return render(request, "home.html", {"products": products})
+    categories = ProductCategory.objects.all()
+    user = request.user
+
+    context = {
+        "products": products,
+        "categories": categories,
+        "user": user,
+    }
+    return render(request, "home.html", context)
 
 
 def add_listing(request):
@@ -49,7 +56,12 @@ def add_product(request):
         category_id = data.get("category")
         category = get_object_or_404(ProductCategory, id=category_id)
         discount = data.get("discount")
-        seller = request.user if request.user.is_authenticated and request.user.is_seller else None
+        seller = (
+            request.user
+            if request.user.is_authenticated and request.user.is_seller
+            else messages.error(request, "You must be a seller to add a product.")
+            and redirect("store_app:login")
+        )
 
         Product.objects.create(
             name=name,
@@ -57,7 +69,7 @@ def add_product(request):
             price=price,
             category=category,
             discounted_price=discount,
-            seller=seller,
+            user_vendor=seller,
         )
         messages.success(request, "Product added successfully!")
         return redirect("home")
@@ -76,7 +88,12 @@ def add_service(request):
         category_id = data.get("category")
         category = get_object_or_404(ServiceCategory, id=category_id)
         discount = data.get("discount")
-        seller = request.user if request.user.is_authenticated and request.user.is_seller else None
+        seller = (
+            request.user
+            if request.user.is_authenticated and request.user.is_seller
+            else messages.error(request, "You must be a seller to add a product.")
+            and redirect("store_app:login")
+        )
 
         Service.objects.create(
             name=name,
@@ -84,7 +101,7 @@ def add_service(request):
             price=price,
             category=category,
             discounted_price=discount,
-            seller=seller,
+            user_provider=seller,
         )
         messages.success(request, "Service added successfully!")
         return redirect("home")
@@ -111,6 +128,7 @@ def create_category(request):
         return redirect("add-listing")
 
     return render(request, "create_category.html")
+
 
 def search(request):
     query = request.GET.get("q", "")
@@ -156,6 +174,8 @@ def logout_view(request):
     logout(request)
     messages.success(request, "You have been logged out successfully.")
     return redirect("home")
+
+
 class SignupView(View):
     template_name = "signup.html"
 
@@ -175,7 +195,7 @@ class SignupView(View):
             first_name=cd["first_name"].strip(),
             last_name=cd["last_name"].strip(),
             email=cd["email"].lower(),
-            phone_number=cd.get("phone_number","").strip(),
+            phone_number=cd.get("phone_number", "").strip(),
             is_seller=cd.get("is_seller", False),
             provides_service=cd.get("provides_service", False),
             pendingemail=True,
