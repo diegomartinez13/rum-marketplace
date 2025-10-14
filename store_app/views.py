@@ -17,61 +17,145 @@ from django.core.mail import send_mail
 import secrets  # only if you still want a fallback; see note below
 
 from .forms import PreSignupForm
-from .models import User, PendingSignup, Product, ProductCategory, Service, ServiceCategory
+from .models import (
+    User,
+    PendingSignup,
+    Product,
+    ProductCategory,
+    Service,
+    ServiceCategory,
+)
 from .tokens import generate_signup_token
 
 logger = logging.getLogger(__name__)
 
+
 def home(request):
     products = Product.objects.all()
-    return render(request, "home.html", {'products': products})
+    return render(request, "home.html", {"products": products})
+
 
 def add_listing(request):
     return render(request, "add_listing.html")
 
+
+def add_product(request):
+    categories = ProductCategory.objects.all()
+    if request.method == "POST":
+        data = request.POST
+        name = data.get("name")
+        description = data.get("description")
+        price = data.get("price")
+        category_id = data.get("category")
+        category = get_object_or_404(ProductCategory, id=category_id)
+        discount = data.get("discount")
+        seller = request.user if request.user.is_authenticated and request.user.is_seller else None
+
+        Product.objects.create(
+            name=name,
+            description=description,
+            price=price,
+            category=category,
+            discounted_price=discount,
+            seller=seller,
+        )
+        messages.success(request, "Product added successfully!")
+        return redirect("home")
+
+    context = {"categories": categories}
+    return render(request, "add_product.html", context)
+
+
+def add_service(request):
+    categories = ServiceCategory.objects.all()
+    if request.method == "POST":
+        data = request.POST
+        name = data.get("name")
+        description = data.get("description")
+        price = data.get("price")
+        category_id = data.get("category")
+        category = get_object_or_404(ServiceCategory, id=category_id)
+        discount = data.get("discount")
+        seller = request.user if request.user.is_authenticated and request.user.is_seller else None
+
+        Service.objects.create(
+            name=name,
+            description=description,
+            price=price,
+            category=category,
+            discounted_price=discount,
+            seller=seller,
+        )
+        messages.success(request, "Service added successfully!")
+        return redirect("home")
+
+    context = {"categories": categories}
+    return render(request, "add_service.html", context)
+
+
+def create_category(request):
+    if request.method == "POST":
+        name = request.POST.get("name")
+        description = request.POST.get("description")
+        category_type = request.POST.get("category_type")
+
+        if category_type == "product":
+            ProductCategory.objects.create(name=name, description=description)
+            messages.success(request, "Product category created successfully!")
+        elif category_type == "service":
+            ServiceCategory.objects.create(name=name, description=description)
+            messages.success(request, "Service category created successfully!")
+        else:
+            messages.error(request, "Invalid category type.")
+
+        return redirect("add-listing")
+
+    return render(request, "create_category.html")
+
 def search(request):
-    query = request.GET.get('q', '')
+    query = request.GET.get("q", "")
     if query:
         products = Product.objects.filter(
-            Q(name__icontains=query) |
-            Q(description__icontains=query)
+            Q(name__icontains=query) | Q(description__icontains=query)
         )
     else:
         products = Product.objects.all()
 
-    return render(request, 'home.html', {
-        'products': products,
-        'query': query
-    })
+    return render(request, "home.html", {"products": products, "query": query})
+
 
 def login_view(request):
     # NOTE: This assumes a Django-auth User model (with username/password).
     # Your current custom User model is not wired to Django auth, so this is likely placeholder.
-    if request.method == 'POST':
-        email = request.POST.get('email')
-        password = request.POST.get('password')
+    if request.method == "POST":
+        email = request.POST.get("email")
+        password = request.POST.get("password")
 
         try:
             # If you keep a custom user table, you'll need a custom auth backend.
             # This line will fail if your custom User has no username field.
             user_obj = User.objects.get(email=email)
-            user = authenticate(request, username=getattr(user_obj, 'username', email), password=password)
+            user = authenticate(
+                request,
+                username=getattr(user_obj, "username", email),
+                password=password,
+            )
             if user is not None:
                 login(request, user)
-                messages.success(request, 'Successfully logged in!')
-                return redirect('home')
+                messages.success(request, "Successfully logged in!")
+                return redirect("home")
             else:
-                messages.error(request, 'Invalid email or password.')
+                messages.error(request, "Invalid email or password.")
         except User.DoesNotExist:
-            messages.error(request, 'Invalid email or password.')
+            messages.error(request, "Invalid email or password.")
 
-    return render(request, 'login.html')
+    return render(request, "login.html")
+
 
 def logout_view(request):
     logout(request)
-    messages.success(request, 'You have been logged out successfully.')
-    return redirect('home')
-
+    messages.success(request, "You have been logged out successfully.")
+    return redirect("home")
 
 
 class SignupView(View):
