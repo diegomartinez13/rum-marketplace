@@ -5,8 +5,7 @@ from .models import (
     ProductOrder, ServiceRequest,
     Business, BusinessCategory,
     Inventory, StockedProduct, StockedService,
-    Review, Cart, PurchaseHistory,
-    PendingSignup
+    Review, Cart, PurchaseHistory
 )
 
 # Register your models here.
@@ -37,7 +36,6 @@ admin.site.register(StockedService)
 admin.site.register(Review)
 admin.site.register(Cart)
 admin.site.register(PurchaseHistory)
-admin.site.register(PendingSignup)
 
 admin.site.site_header = "Rum Marketplace Admin"
 admin.site.site_title = "Rum Marketplace Admin Portal"

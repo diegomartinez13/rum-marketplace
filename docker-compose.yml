@@ -11,13 +11,13 @@ services:
     depends_on:
       - db
     environment:
-      - EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
+      - EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
       - EMAIL_HOST=smtp.gmail.com
       - EMAIL_PORT=587
       - EMAIL_USE_TLS=true
       - EMAIL_HOST_USER=rummarketplace@gmail.com
       - EMAIL_HOST_PASSWORD=zbayknrczsoyfqmz
-      - DEFAULT_FROM_EMAIL=RUM Marketplace <rummarketplace@gmail.com>
+      - DEFAULT_FROM_EMAIL=rummarketplace@gmail.com
   db:
     image: postgres:14
     volumes:
