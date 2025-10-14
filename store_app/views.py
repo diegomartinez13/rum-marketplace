@@ -17,8 +17,8 @@ from django.core.mail import send_mail
 import secrets  # only if you still want a fallback; see note below
 
 from .forms import PreSignupForm
-from .models import User, PendingSignup, Product, ProductCategory, Service, ServiceCategory
-from .tokens import generate_signup_token
+from .models import User, Product, ProductCategory, Service, ServiceCategory
+from .tokens import new_email_token
 
 logger = logging.getLogger(__name__)
 
@@ -72,14 +72,11 @@ def logout_view(request):
     messages.success(request, 'You have been logged out successfully.')
     return redirect('home')
 
-
-
 class SignupView(View):
     template_name = "signup.html"
 
     def get(self, request):
-        form = PreSignupForm()
-        return render(request, self.template_name, {"form": form})
+        return render(request, self.template_name, {"form": PreSignupForm()})
 
     def post(self, request):
         form = PreSignupForm(request.POST)
@@ -87,151 +84,49 @@ class SignupView(View):
             return render(request, self.template_name, {"form": form})
 
         cd = form.cleaned_data
+        token, expires = new_email_token(hours_valid=1)
 
-        # Build PendingSignup instance (mirror the user data)
-        pending = PendingSignup.from_raw(
-            username=cd["username"],
-            first_name=cd["first_name"],
-            last_name=cd["last_name"],
-            email=cd["email"],
-            raw_password=cd["password"],
+        user = User(
+            username=cd["username"].lower(),
+            first_name=cd["first_name"].strip(),
+            last_name=cd["last_name"].strip(),
+            email=cd["email"].lower(),
+            phone_number=cd.get("phone_number","").strip(),
             is_seller=cd.get("is_seller", False),
             provides_service=cd.get("provides_service", False),
-            phone_number=cd.get("phone_number", ""),
-            is_admin=False,  # never from public form
+            pendingemail=True,
+            email_token=token,
+            email_token_expires_at=expires,
         )
+        user.set_password_raw(cd["password"])
+        user.save()
 
-        # Set token & expiry (ensure from_raw set created_at)
-        pending.token = generate_signup_token()
-        # If from_raw already set expires_at, keep it; else set now+60min
-        if not pending.expires_at:
-            pending.expires_at = timezone.now() + timedelta(minutes=60)
-
-        pending.save()
-
-        # Build verification link (absolute URL)
-        verify_url = request.build_absolute_uri(
-            reverse("verify-email", kwargs={"token": pending.token})
+        activate_url = request.build_absolute_uri(
+            reverse("store_app:verify_email", kwargs={"token": token})
         )
-
-        # Send verification email
-        subject = "Verify your RUM Marketplace account"
-        body = (
-            f"Hola {pending.first_name},\n\n"
-            "Confirma tu cuenta para completar tu registro en RUM Marketplace.\n\n"
-            f"Verificar ahora: {verify_url}\n\n"
-            "Este enlace expira en 60 minutos.\n\n"
-            "Si no fuiste tu, ignora este correo."
-        )
-
-        # Choose either send_mail or EmailMessage (both shown, use one)
+        subject = "Verify your RUM Marketplace email"
+        body = f"Hi {user.first_name},\n\nConfirm your email:\n{activate_url}\n\nThis link expires in 1 hour."
         try:
-            if getattr(settings, "USE_EMAILMESSAGE", False):
-                email = EmailMessage(
-                    subject=subject,
-                    body=body,
-                    from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
-                    to=[pending.email],
-                )
-                email.send(fail_silently=False)
-            else:
-                send_mail(
-                    subject,
-                    body,
-                    getattr(settings, "DEFAULT_FROM_EMAIL", None),
-                    [pending.email],
-                    fail_silently=False,
-                )
-        except Exception as e:
-            # If email fails, cleanup the pending row to avoid dead tokens
-            pending.delete()
-            messages.error(
-                request,
-                "No se pudo enviar el correo de verificacion. Intenta nuevamente.",
-            )
-            return render(request, self.template_name, {"form": form})
+            send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, [user.email])
+        except Exception:
+            pass  # don't block UX on email errors
 
-        messages.success(
-            request,
-            "Te enviamos un correo para verificar tu cuenta (vigente por 60 minutos).",
-        )
-        return redirect("signup-thanks")
-
-
-def signup_thanks(request):
-    return render(request, "signup_thanks.html")
+        return redirect("store_app:email_verification_sent")
 
 
 class VerifyEmailView(View):
     template_name = "verify_result.html"
 
     def get(self, request, token):
-        # Find pending record by token
-        pending = PendingSignup.objects.filter(token=token).first()
-        if not pending:
-            return render(
-                request,
-                self.template_name,
-                {"status": "error", "message": "Token inv�lido."},
-            )
+        user = User.objects.filter(email_token=token).first()
+        if not user:
+            messages.error(request, "Invalid or used verification link.")
+            return render(request, self.template_name, {"status": "error"})
 
-        # Check expiration
-        if pending.is_expired():
-            # Optionally: offer a re-send flow here
-            # pending.delete()  # Keep or delete; your choice
-            return render(
-                request,
-                self.template_name,
-                {
-                    "status": "expired",
-                    "message": "El enlace de verificaci�n ha expirado. Solicita uno nuevo.",
-                },
-            )
+        if user.email_token_expires_at and user.email_token_expires_at < timezone.now():
+            messages.error(request, "This verification link has expired.")
+            return render(request, self.template_name, {"status": "expired"})
 
-        # If there's already a real user with this email/username, block
-        if User.objects.filter(email__iexact=pending.email).exists():
-            pending.delete()
-            return render(
-                request,
-                self.template_name,
-                {
-                    "status": "error",
-                    "message": "Esta cuenta ya fue activada o el email ya está en uso.",
-                },
-            )
-        if User.objects.filter(username__iexact=pending.username).exists():
-            pending.delete()
-            return render(
-                request,
-                self.template_name,
-                {
-                    "status": "error",
-                    "message": "Este nombre de usuario ya est� en uso.",
-                },
-            )
-
-        # Create the real user
-        user = User.objects.create(
-            is_admin=pending.is_admin,
-            first_name=pending.first_name,
-            last_name=pending.last_name,
-            username=pending.username,
-            email=pending.email.lower(),
-            password=pending.password_hash,  # already hashed in from_raw
-            is_seller=pending.is_seller,
-            provides_service=pending.provides_service,
-            phone_number=pending.phone_number,
-        )
-
-        # Remove the pending row
-        pending.delete()
-
-        return render(
-            request,
-            self.template_name,
-            {
-                "status": "ok",
-                "message": "¡Cuenta verificada! Ya puedes iniciar sesión.",
-                "username": user.username,
-            },
-        )
+        user.mark_verified()
+        messages.success(request, "Email verified. You can now use all features.")
+        return render(request, self.template_name, {"status": "ok"})

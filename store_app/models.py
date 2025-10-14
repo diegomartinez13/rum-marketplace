@@ -2,23 +2,36 @@ from django.db import models
 from decimal import Decimal
 from django.utils import timezone
 from django.contrib.auth.hashers import make_password
+from django.core.validators import RegexValidator
 
 # NOTE: For production, prefer a proper auth User. This is your current custom table.
 class User(models.Model):
-    # Django provides `id` automatically; we can keep it.
-    is_admin = models.BooleanField(default=False)
-    first_name = models.CharField(max_length=50)
-    last_name  = models.CharField(max_length=100)
-    username = models.CharField(max_length=150, unique=True, db_index=True)
-    email    = models.EmailField(max_length=100, unique=True)
-    password = models.CharField(max_length=128)
-    is_seller          = models.BooleanField(default=False)
-    provides_service   = models.BooleanField(default=False)
-    phone_number = models.CharField(max_length=20, blank=True)
+    # existing fields ...
+    first_name     = models.CharField(max_length=50)
+    last_name      = models.CharField(max_length=100)
+    email          = models.EmailField(max_length=100, unique=True)
+    username       = models.CharField(max_length=150, unique=True)
+    password       = models.CharField(max_length=128)  # hashed only
+    phone_number   = models.CharField(max_length=20, blank=True)
+    is_seller      = models.BooleanField(default=False)
+    provides_service = models.BooleanField(default=False)
+    is_admin       = models.BooleanField(default=False)
 
+    # NEW: email verification state
+    pendingemail   = models.BooleanField(default=True)      # gate access
+    email_token    = models.CharField(max_length=64, blank=True, null=True, db_index=True)
+    email_token_expires_at = models.DateTimeField(blank=True, null=True)
+    verified_at    = models.DateTimeField(blank=True, null=True)
 
-    def __str__(self):
-        return f"{self.first_name} {self.last_name} (@{self.username})"
+    def mark_verified(self):
+        self.pendingemail = False
+        self.verified_at = timezone.now()
+        self.email_token = None
+        self.email_token_expires_at = None
+        self.save(update_fields=["pendingemail","verified_at","email_token","email_token_expires_at"])
+
+    def set_password_raw(self, raw):
+        self.password = make_password(raw)
 
 class ProductCategory(models.Model):
     name = models.CharField(max_length=50, unique=True)
@@ -158,59 +171,3 @@ class PurchaseHistory(models.Model):
     total_amount = models.DecimalField(default=Decimal('0.00'), decimal_places=2, max_digits=10)
     def __str__(self): return f"Purchase {self.id} by {self.user.id} on {self.purchase_date}"
     class Meta: verbose_name_plural = "Purchase Histories"
-
-class PendingSignup(models.Model):
-    # Mirror of User fields we collect during signup
-    is_admin = models.BooleanField(default=False)
-
-    first_name = models.CharField(max_length=50)
-    last_name  = models.CharField(max_length=100)
-
-    username = models.CharField(max_length=150)          # uniqueness checked at activation
-    email    = models.EmailField(db_index=True)
-
-    # store the hashed password during the pending phase
-    password_hash = models.CharField(max_length=256)
-
-    is_seller        = models.BooleanField(default=False)
-    provides_service = models.BooleanField(default=False)
-    phone_number     = models.CharField(max_length=20, blank=True)
-
-    # Email verification mechanics
-    token      = models.CharField(max_length=64, unique=True, db_index=True)
-    created_at = models.DateTimeField(default=timezone.now)
-    expires_at = models.DateTimeField()
-
-    @classmethod
-    def from_raw(
-        cls, *,
-        username: str,
-        first_name: str,
-        last_name: str,
-        email: str,
-        raw_password: str,
-        is_seller: bool = False,
-        provides_service: bool = False,
-        is_admin: bool = False,
-        phone_number: str = ""
-    ):
-        now = timezone.now()
-        return cls(
-            username=username.strip(),
-            first_name=first_name.strip(),
-            last_name=last_name.strip(),
-            email=email.strip().lower(),
-            password_hash=make_password(raw_password),
-            is_seller=is_seller,
-            provides_service=provides_service,
-            is_admin=is_admin,
-            phone_number=phone_number.strip(),
-            created_at=now,
-            expires_at=now + timezone.timedelta(minutes=60),
-        )
-
-    def is_expired(self):
-        return timezone.now() >= self.expires_at
-
-    def __str__(self):
-        return f"PendingSignup<{self.email}>"
