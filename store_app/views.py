@@ -186,17 +186,18 @@ def login_view(request):
                     request.session.set_expiry(0)
                 
                 messages.success(request, f"Welcome back, {user.first_name}!")
-                
+                # redirect to home if logged in successfully
                 return redirect("store_app:home")
             else:
                 messages.error(request, "Invalid email or password.")
+                return redirect("store_app:login")
                 
         except User.DoesNotExist:
             # Don't reveal whether email exists for security
             messages.error(request, "Invalid email or password.")
-
-        # redirect to home if logged in successfully
-        return redirect("store_app:home")
+        
+        # Redirect back to login on failure
+        return redirect("store_app:login")
     
     # GET request - show login form
     return render(request, "login.html")
