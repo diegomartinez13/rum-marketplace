@@ -29,6 +29,9 @@ def home(request):
 def add_listing(request):
     return render(request, "add_listing.html")
 
+def messages_view(request):
+    return render(request, "messages.html")
+
 def search(request):
     query = request.GET.get('q', '')
     if query:

@@ -21,6 +21,14 @@
   </a>
 </div>
 
+<!-- Floating Messages Button -->
+<div class="floating-messages-button">
+  <a href="{% url 'store_app:messages' %}" class="btn btn-primary shadow-lg floating-btn">
+    <i class="bi bi-chat-dots me-1" style="color: white;"></i>
+    <span style="font-weight: 600; color: white;">Messages</span>
+  </a>
+</div>
+
 <style>
   .floating-add-button {
     position: fixed;
@@ -60,11 +68,35 @@
     color: white !important;
   }
 
+  /* Messages Button Styles */
+  .floating-messages-button {
+    position: fixed;
+    bottom: 4vw;
+    left: 4vw;
+    z-index: 1000;
+    transition: transform 0.3s ease;
+  }
+
+  .floating-messages-button:hover {
+    transform: scale(1.05);
+  }
+
+  .floating-messages-button a:hover {
+    text-decoration: none;
+    background-color: #0d6efd !important;
+    border-color: #0d6efd !important;
+  }
+
   /* Mobile screens */
   @media (max-width: 768px) {
     .floating-add-button {
       bottom: 3vw;
       right: 3vw;
+    }
+
+    .floating-messages-button {
+      bottom: 3vw;
+      left: 3vw;
     }
 
     .floating-btn {

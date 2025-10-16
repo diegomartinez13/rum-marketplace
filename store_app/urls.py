@@ -20,4 +20,5 @@ urlpatterns = [
         name="email_verification_sent",
     ),
     path("add-listing/", views.add_listing, name="add-listing"),
+    path("messages/", views.messages_view, name="messages"),
 ]
