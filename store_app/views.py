@@ -187,7 +187,7 @@ def login_view(request):
                 
                 messages.success(request, f"Welcome back, {user.first_name}!")
                 
-                return redirect("home")
+                return redirect("store_app:home")
             else:
                 messages.error(request, "Invalid email or password.")
                 

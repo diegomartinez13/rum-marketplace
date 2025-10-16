@@ -4,7 +4,12 @@
 <!-- Display messages -->
 {% if messages %}
     {% for message in messages %}
-        <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        <div class="alert alert-{{ message.tags }}">
+          {{ message }}
+          <div class="float-end">
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        </div>
     {% endfor %}
 {% endif %}
 
