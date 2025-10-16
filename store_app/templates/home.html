@@ -1,6 +1,18 @@
 {% extends 'base.html' %}
 
 {% block content %}
+<!-- Display messages -->
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">
+          {{ message }}
+          <div class="float-end">
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        </div>
+    {% endfor %}
+{% endif %}
+
 <!-- Header-->
 <header class="py-5" style="background-color: ghostwhite;">
   <div class="container-fluid align-items-center justify-content-center">
@@ -13,6 +25,7 @@
 
 <!-- Section-->
 
+{% if user.is_authenticated %}
 <!-- Floating Add Listing Button -->
 <div class="floating-add-button">
   <a href="{% url 'store_app:add-listing' %}" class="btn btn-success shadow-lg floating-btn">
@@ -20,6 +33,7 @@
     <span style="font-weight: 600; color: rgb(25, 135, 84);">Add Listing</span>
   </a>
 </div>
+{% endif %}
 
 <style>
   .floating-add-button {

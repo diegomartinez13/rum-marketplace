@@ -10,19 +10,19 @@
           <h3 class="text-center font-weight-light my-4">Login</h3>
         </div>
         <div class="card-body">
-          <form class="auth-form" method="post" action="{% url 'store_app:login' %}">
+          <form class="auth-form" method="POST" action="{% url 'store_app:login' %}">
             {% csrf_token %}
             <div class="form-floating mb-3">
-              <input class="form-control" id="inputEmail" name="email" type="email" placeholder="name@example.com" required />
-              <label for="inputEmail">Email address</label>
+              <input class="form-control" id="inputEmail" name="email" type="text" placeholder="Email" required />
+              <label for="inputEmail">Email</label>
             </div>
             <div class="form-floating mb-3">
               <input class="form-control" id="inputPassword" name="password" type="password" placeholder="Password" required />
               <label for="inputPassword">Password</label>
             </div>
             <div class="form-check mb-3">
-              <input class="form-check-input" id="inputRememberPassword" name="remember" type="checkbox" />
-              <label class="form-check-label" for="inputRememberPassword">Remember Password</label>
+              <input class="form-check-input" name="remember_me" id="remember_me" type="checkbox"/>
+              <label class="form-check-label" for="remember_me">Remember Me</label>
             </div>
             <div class="d-flex align-items-center justify-content-between mt-4 mb-0">
               <a class="small" href="#!">Forgot Password?</a>
@@ -30,6 +30,12 @@
             </div>
           </form>
         </div>
+        <!-- Display messages -->
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
         <div class="card-footer text-center py-3">
           <div class="small"><a href="{% url 'store_app:signup' %}">Need an account? Sign up!</a></div>
         </div>

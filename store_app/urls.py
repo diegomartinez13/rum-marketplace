@@ -8,10 +8,10 @@ from django.shortcuts import render
 app_name = "store_app"
 
 urlpatterns = [
-    path('', home, name="home"),
-    path('search/', views.search, name="search"),
-    path('login/', views.login_view, name="login"),
-    path('logout/', views.logout_view, name="logout"),
+    path("", home, name="home"),
+    path("search/", views.search, name="search"),
+    path("login/", views.login_view, name="login"),
+    path("logout/", views.logout_view, name="logout"),
     path("signup/", SignupView.as_view(), name="signup"),
     path("verify/<str:token>/", VerifyEmailView.as_view(), name="verify_email"),
     path(
@@ -20,4 +20,6 @@ urlpatterns = [
         name="email_verification_sent",
     ),
     path("add-listing/", views.add_listing, name="add-listing"),
+    path("add-product/", views.add_product, name="add-product"),
+    path("add-service/", views.add_service, name="add-service"),
 ]

@@ -3,6 +3,7 @@ from django.core.exceptions import ValidationError
 from django.contrib.auth.password_validation import validate_password
 from .models import User
 
+
 class PreSignupForm(forms.Form):
     username = forms.CharField(max_length=150)
     first_name = forms.CharField(max_length=50)
@@ -33,5 +34,5 @@ class PreSignupForm(forms.Form):
         if cd.get("password") != cd.get("confirm_password"):
             self.add_error("confirm_password", "Passwords do not match.")
         else:
-            validate_password(cd.get("password"))
+            validate_password(cd.get("password"))  # type: ignore
         return cd
