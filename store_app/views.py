@@ -169,7 +169,7 @@ def login_view(request):
             
             if authenticated_user is not None:
                 # Check if user's email is verified (your business logic)
-                if authenticated_user.profile.pending_email_verification:
+                if authenticated_user.profile.pending_email_verification: # type: ignore
                     messages.warning(
                         request, 
                         "Please verify your email before logging in. "
@@ -234,7 +234,7 @@ class SignupView(View):
             
             # The UserProfile is automatically created via signal
             # Now update the profile with your custom fields
-            profile = user.profile
+            profile = user.profile # type: ignore
             profile.phone_number = cd.get("phone_number", "").strip()
             profile.is_seller = cd.get("is_seller", False)
             profile.provides_service = cd.get("provides_service", False)
