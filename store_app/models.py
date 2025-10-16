@@ -3,43 +3,43 @@ from decimal import Decimal
 from django.utils import timezone
 from django.contrib.auth.hashers import make_password
 from django.core.validators import RegexValidator
+from django.contrib.auth.models import User
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 
-# NOTE: For production, prefer a proper auth User. This is your current custom table.
-class User(models.Model):
-    # existing fields ...
-    first_name = models.CharField(max_length=50)
-    last_name = models.CharField(max_length=100)
-    email = models.EmailField(max_length=100, unique=True)
-    username = models.CharField(max_length=150, unique=True)
-    password = models.CharField(max_length=128)  # hashed only
+class UserProfile(models.Model):
+    # Link to Django's built-in User (for authentication)
+    user = models.OneToOneField(
+        User, 
+        on_delete=models.CASCADE,
+        related_name='profile'
+    )
+    
+    # Your custom e-commerce fields
     phone_number = models.CharField(max_length=20, blank=True)
     is_seller = models.BooleanField(default=False)
     provides_service = models.BooleanField(default=False)
-    is_admin = models.BooleanField(default=False)
-
-    # NEW: email verification state
-    pendingemail = models.BooleanField(default=True)  # gate access
+    
+    # Email verification (for your app, separate from Django auth)
+    pending_email_verification = models.BooleanField(default=True)
     email_token = models.CharField(max_length=64, blank=True, null=True, db_index=True)
     email_token_expires_at = models.DateTimeField(blank=True, null=True)
     verified_at = models.DateTimeField(blank=True, null=True)
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.email} Profile"
 
     def mark_verified(self):
-        self.pendingemail = False
+        self.pending_email_verification = False
         self.verified_at = timezone.now()
         self.email_token = None
         self.email_token_expires_at = None
-        self.save(
-            update_fields=[
-                "pendingemail",
-                "verified_at",
-                "email_token",
-                "email_token_expires_at",
-            ]
-        )
-
-    def set_password_raw(self, raw):
-        self.password = make_password(raw)
+        self.save()
 
 
 class ProductCategory(models.Model):
@@ -287,3 +287,16 @@ class PurchaseHistory(models.Model):
 
     class Meta:
         verbose_name_plural = "Purchase Histories"
+
+
+# Signal to automatically create profile when User is created
+@receiver(post_save, sender=User)
+def create_user_profile(sender, instance, created, **kwargs):
+    if created:
+        UserProfile.objects.create(user=instance)
+
+
+@receiver(post_save, sender=User)
+def save_user_profile(sender, instance, **kwargs):
+    if hasattr(instance, 'profile'):
+        instance.profile.save()

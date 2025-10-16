@@ -1,6 +1,6 @@
 from django.contrib import admin
 from .models import (
-    User,
+    UserProfile,
     ProductCategory,
     Product,
     ServiceCategory,
@@ -35,7 +35,7 @@ class ServiceCategoryAdmin(admin.ModelAdmin):
     readonly_fields = ["created_at"]
 
 
-admin.site.register(User)
+admin.site.register(UserProfile)
 admin.site.register(Product)
 admin.site.register(Service)
 admin.site.register(ProductOrder)
