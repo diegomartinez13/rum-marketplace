@@ -3,14 +3,14 @@
 {% block content %}
 <!-- Display messages -->
 {% if messages %}
-    {% for message in messages %}
-        <div class="alert alert-{{ message.tags }}">
-          {{ message }}
-          <div class="float-end">
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-          </div>
-        </div>
-    {% endfor %}
+{% for message in messages %}
+<div class="alert alert-{{ message.tags }}">
+  {{ message }}
+  <div class="float-end">
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+  </div>
+</div>
+{% endfor %}
 {% endif %}
 
 <!-- Header-->
@@ -35,6 +35,7 @@
 </div>
 {% endif %}
 
+{% if user.is_authenticated %}
 <!-- Floating Messages Button -->
 <div class="floating-messages-button">
   <a href="{% url 'store_app:messages' %}" class="btn btn-primary shadow-lg floating-btn">
@@ -42,6 +43,7 @@
     <span style="font-weight: 600; color: white;">Messages</span>
   </a>
 </div>
+{% endif %}
 
 <style>
   .floating-add-button {
