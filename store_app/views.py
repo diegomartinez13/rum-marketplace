@@ -47,6 +47,8 @@ def home(request):
 def add_listing(request):
     return render(request, "add_listing.html")
 
+def messages_view(request):
+    return render(request, "messages.html")
 
 @login_required
 def add_product(request):
