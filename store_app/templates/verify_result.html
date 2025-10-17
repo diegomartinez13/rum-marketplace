@@ -1,20 +1,20 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="container mt-5 text-center">
+<div class="container mt-5 text-center align-items-center justify-content-center">
   {% if status == "ok" %}
-    <h2 class="text-success">Email Verified!</h2>
-    <p>Your account is now active. You can log in and use all features.</p>
-    <a href="{% url 'store_app:login' %}" class="btn btn-success mt-3">Go to Login</a>
+  <h2 class="text-success">Email Verified!</h2>
+  <p>Your account is now active. You can log in and use all features.</p>
+  <a href="{% url 'store_app:login' %}" class="btn btn-success mt-3">Go to Login</a>
 
   {% elif status == "expired" %}
-    <h2 class="text-warning">Verification Link Expired</h2>
-    <p>The verification link expired. Please sign up again or request a new one.</p>
-    <a href="{% url 'store_app:signup' %}" class="btn btn-outline-warning mt-3">Sign up again</a>
+  <h2 class="text-warning">Verification Link Expired</h2>
+  <p>The verification link expired. Please sign up again or request a new one.</p>
+  <a href="{% url 'store_app:signup' %}" class="btn btn-outline-warning mt-3">Sign up again</a>
 
   {% else %}
-    <h2 class="text-danger">Invalid or Used Link</h2>
-    <p>This verification link is invalid or already used.</p>
-    <a href="{% url 'store_app:signup' %}" class="btn btn-outline-danger mt-3">Sign up</a>
+  <h2 class="text-danger">Invalid or Used Link</h2>
+  <p>This verification link is invalid or already used.</p>
+  <a href="{% url 'store_app:signup' %}" class="btn btn-outline-danger mt-3">Sign up</a>
   {% endif %}
 </div>
 {% endblock %}
