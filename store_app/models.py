@@ -289,6 +289,68 @@ class PurchaseHistory(models.Model):
         verbose_name_plural = "Purchase Histories"
 
 
+class Conversation(models.Model):
+    """Represents a conversation between two users"""
+    participants = models.ManyToManyField(User, related_name='conversations')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    # Optional: Link to a product or service if the conversation started from a listing
+    product = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True, blank=True, related_name='conversations')
+    service = models.ForeignKey(Service, on_delete=models.SET_NULL, null=True, blank=True, related_name='conversations')
+    
+    class Meta:
+        ordering = ['-updated_at']
+    
+    def __str__(self):
+        participant_names = [p.get_full_name() or p.username for p in self.participants.all()]
+        return f"Conversation between {', '.join(participant_names)}"
+    
+    def get_other_participant(self, user):
+        """Get the other participant in the conversation"""
+        return self.participants.exclude(id=user.id).first()
+    
+    def get_latest_message(self):
+        """Get the latest message in this conversation"""
+        return self.messages.first()
+    
+    @classmethod
+    def get_or_create_conversation(cls, user1, user2):
+        """Get existing conversation between two users or create a new one"""
+        # Check if conversation already exists
+        existing = cls.objects.filter(participants=user1).filter(participants=user2).first()
+        if existing:
+            return existing, False
+        
+        # Create new conversation
+        conversation = cls.objects.create()
+        conversation.participants.add(user1, user2)
+        return conversation, True
+
+
+class Message(models.Model):
+    """Represents a message within a conversation"""
+    conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, related_name='messages')
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_messages')
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_read = models.BooleanField(default=False)
+    read_at = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        ordering = ['created_at']
+    
+    def __str__(self):
+        return f"Message from {self.sender.get_full_name() or self.sender.username} in {self.conversation}"
+    
+    def mark_as_read(self):
+        """Mark the message as read"""
+        if not self.is_read:
+            self.is_read = True
+            self.read_at = timezone.now()
+            self.save()
+
+
 # Signal to automatically create profile when User is created
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
