@@ -23,7 +23,66 @@
   </div>
 </header>
 
-<!-- Section-->
+<!-- Product Display -->
+<div class="container mt-4">
+  <h2 class="mb-4">Available Products</h2>
+  <div class="row">
+    {% for product in products %}
+    <div class="col-md-4 mb-4">
+      <div class="card">
+        <img src="media/{{ product.image}}" class="card-img-top" alt="{{ product.name }}" height="250px"
+          style="object-fit: scale-down;">
+        <div class="card-body">
+          <h5 class="card-title">{{ product.name }}</h5>
+          {% if user.is_authenticated %}
+            <p class="card-text">{{ product.description }}</p>
+            {% if product.discount %}
+              <p class="card-text">
+                <strong>Price:</strong>
+                <span class="text-decoration-line-through text-muted">${{ product.price }}</span>
+                <span class="text-danger ms-2">${{ product.final_price }}</span>
+              </p>
+            {% else %}
+              <p class="card-text"><strong>Price:</strong> ${{ product.price }}</p>
+            {% endif %}
+            <a href="#" class="btn btn-outline-secondary">View Details</a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+
+<!-- Service Display -->
+<div class="container mt-4">
+  <h2 class="mb-4">Available Services</h2>
+  <div class="row">
+    {% for service in services %}
+    <div class="col-md-4 mb-4">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">{{ service.name }}</h5>
+          {% if user.is_authenticated %}
+            <p class="card-text">{{ service.description }}</p>
+            {% if service.discount %}
+              <p class="card-text">
+                <strong>Price:</strong>
+                <span class="text-decoration-line-through text-muted">${{ service.price }}</span>
+                <span class="text-danger ms-2">${{ service.price|floatformat:2|add:"-"|add:service.discount|floatformat:2 }}</span>
+              </p>
+            {% else %}
+              <p class="card-text"><strong>Price:</strong> ${{ service.price }}</p>
+            {% endif %}
+            <a href="#" class="btn btn-outline-secondary">View Details</a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
 
 {% if user.is_authenticated %}
 <!-- Floating Add Listing Button -->

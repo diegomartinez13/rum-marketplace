@@ -10,23 +10,19 @@ from django.dispatch import receiver
 
 class UserProfile(models.Model):
     # Link to Django's built-in User (for authentication)
-    user = models.OneToOneField(
-        User, 
-        on_delete=models.CASCADE,
-        related_name='profile'
-    )
-    
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile")
+
     # Your custom e-commerce fields
     phone_number = models.CharField(max_length=20, blank=True)
     is_seller = models.BooleanField(default=False)
     provides_service = models.BooleanField(default=False)
-    
+
     # Email verification (for your app, separate from Django auth)
     pending_email_verification = models.BooleanField(default=True)
     email_token = models.CharField(max_length=64, blank=True, null=True, db_index=True)
     email_token_expires_at = models.DateTimeField(blank=True, null=True)
     verified_at = models.DateTimeField(blank=True, null=True)
-    
+
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -88,6 +84,10 @@ class Product(models.Model):
         User, on_delete=models.CASCADE, null=True, blank=True, related_name="products"
     )
 
+    @property
+    def final_price(self):
+        return self.price - self.discount
+
     def __str__(self):
         return self.name
 
@@ -137,6 +137,10 @@ class Service(models.Model):
     user_provider = models.ForeignKey(
         User, on_delete=models.CASCADE, null=True, blank=True, related_name="services"
     )
+
+    @property
+    def final_price(self):
+        return self.price - self.discount
 
     def __str__(self):
         return self.name
@@ -298,5 +302,5 @@ def create_user_profile(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender=User)
 def save_user_profile(sender, instance, **kwargs):
-    if hasattr(instance, 'profile'):
+    if hasattr(instance, "profile"):
         instance.profile.save()

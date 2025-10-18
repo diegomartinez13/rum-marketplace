@@ -33,6 +33,7 @@ logger = logging.getLogger(__name__)
 
 def home(request):
     products = Product.objects.all()
+    services = Service.objects.all()
     categories = ProductCategory.objects.all()
     user = request.user
 
@@ -40,6 +41,7 @@ def home(request):
         "products": products,
         "categories": categories,
         "user": user,
+        "services": services,
     }
     return render(request, "home.html", context)
 
@@ -57,10 +59,10 @@ def add_product(request):
         data = request.POST
         name = data.get("name")
         description = data.get("description")
-        price = data.get("price")
+        price = float(data.get("price"))
         category_id = data.get("category")
         category = get_object_or_404(ProductCategory, id=category_id)
-        discount = data.get("discount")
+        discount = ((float(data.get("discount"))/100) * price) if data.get("discount") else 0.00
         seller = (
             request.user
             if request.user.is_authenticated and request.user.profile.is_seller
@@ -73,7 +75,7 @@ def add_product(request):
             description=description,
             price=price,
             category=category,
-            discounted_price=discount,
+            discount=discount,
             user_vendor=seller,
         )
         messages.success(request, "Product added successfully!")
@@ -90,10 +92,10 @@ def add_service(request):
         data = request.POST
         name = data.get("name")
         description = data.get("description")
-        price = data.get("price")
+        price = float(data.get("price"))
         category_id = data.get("category")
         category = get_object_or_404(ServiceCategory, id=category_id)
-        discount = data.get("discount")
+        discount = ((float(data.get("discount"))/100) * price) if data.get("discount") else 0.00
         seller = (
             request.user
             if request.user.is_authenticated and request.user.profile.is_seller
@@ -106,7 +108,7 @@ def add_service(request):
             description=description,
             price=price,
             category=category,
-            discounted_price=discount,
+            discount=discount,
             user_provider=seller,
         )
         messages.success(request, "Service added successfully!")
