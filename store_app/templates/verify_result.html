@@ -1,20 +1,37 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="container mt-5 text-center align-items-center justify-content-center">
-  {% if status == "ok" %}
-  <h2 class="text-success">Email Verified!</h2>
-  <p>Your account is now active. You can log in and use all features.</p>
-  <a href="{% url 'store_app:login' %}" class="btn btn-success mt-3">Go to Login</a>
+  <div class="container" style="max-width:600px;margin:2rem auto;">
 
-  {% elif status == "expired" %}
-  <h2 class="text-warning">Verification Link Expired</h2>
-  <p>The verification link expired. Please sign up again or request a new one.</p>
-  <a href="{% url 'store_app:signup' %}" class="btn btn-outline-warning mt-3">Sign up again</a>
+    {% if status == "ok" %}
+      <h2>Verified!</h2>
+      <p>Your email has been verified. You can now use all features.</p>
 
-  {% else %}
-  <h2 class="text-danger">Invalid or Used Link</h2>
-  <p>This verification link is invalid or already used.</p>
-  <a href="{% url 'store_app:signup' %}" class="btn btn-outline-danger mt-3">Sign up</a>
-  {% endif %}
-</div>
+    {% elif status == "expired" %}
+      <h2>Link expired</h2>
+      <p>This verification link has expired. Request a new one below.</p>
+      {% include "partials/_resend_block.html" %}
+
+    {% elif status == "invalid" %}
+      <h2>Invalid link</h2>
+      <p>This verification link is invalid or already used. Request a new one below.</p>
+      {% include "partials/_resend_block.html" %}
+
+    {% elif status == "resent" %}
+      <h2>Verification email sent</h2>
+      <p>Check your inbox for the new verification email. Open the link and press the <b>Activate</b> button.</p>
+
+    {% elif status == "resend_form" %}
+      <h2>Resend verification</h2>
+      {% include "partials/_resend_block.html" %}
+
+    {% else %}
+      <h2>Verification</h2>
+      <p>If you need a new verification email, request it below.</p>
+      {% include "partials/_resend_block.html" %}
+    {% endif %}
+
+    <p style="margin-top:1rem;">
+      <a href="{% url 'store_app:home' %}" class="btn btn-secondary">Go to Home</a>
+    </p>
+  </div>
 {% endblock %}

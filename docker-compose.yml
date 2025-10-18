@@ -11,8 +11,9 @@ services:
     depends_on:
       - db
     environment:
-      # - EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
-      - EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
+      #- EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+      #- EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
+      - SENDGRID_API_KEY=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
       - EMAIL_HOST=smtp.gmail.com
       - EMAIL_PORT=587
       - EMAIL_USE_TLS=true
