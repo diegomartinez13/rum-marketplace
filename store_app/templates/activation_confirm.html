@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="container" style="max-width:600px;margin:2rem auto;">
+    <h2>Activate your account</h2>
+    <p>Hello {{ user.first_name }} {{ user.last_name }},</p>
+    <p>You opened your email verification link. To finish, please press the button below.</p>
+    <p><em>For security, your link expires in 60 minutes.</em></p>
+
+    <form method="post">
+      {% csrf_token %}
+      <!-- token comes from the URL; we keep it in the path and as a hidden backup -->
+      <input type="hidden" name="token" value="{{ token }}">
+      <button type="submit" class="btn btn-primary">Activate Account</button>
+    </form>
+
+    <p style="margin-top:1rem;">
+      If this link has expired or doesn't work, you can request a new one from the login page.
+    </p>
+  </div>
+{% endblock %}
