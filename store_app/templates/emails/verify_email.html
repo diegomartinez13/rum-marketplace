@@ -1,9 +1,4 @@
-<!doctype html>
-<html>
-  <body>
-    <p>Hi {{ username }},</p>
-    <p>Verify your UPR email by clicking the link below:</p>
-    <p><a href="{{ activate_url }}">Activate my account</a></p>
-    <p>If you didn't request this, ignore this email.</p>
-  </body>
-</html>
+<p>Hi {{ username }},</p>
+<p>To verify your upr email, open the link below and then press the <b>Activate Account</b> button on the page:</p>
+<p><a href="{{ activate_url }}">{{ activate_url }}</a></p>
+<p>This link expires in 60 minutes.</p>

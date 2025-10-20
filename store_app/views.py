@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 
 def home(request):
     products = Product.objects.all()
+    services = Service.objects.all()
     categories = ProductCategory.objects.all()
     user = request.user
 
@@ -42,6 +43,7 @@ def home(request):
         "products": products,
         "categories": categories,
         "user": user,
+        "services": services,
     }
     return render(request, "home.html", context)
 
@@ -80,10 +82,10 @@ def add_product(request):
         data = request.POST
         name = data.get("name")
         description = data.get("description")
-        price = data.get("price")
+        price = float(data.get("price"))
         category_id = data.get("category")
         category = get_object_or_404(ProductCategory, id=category_id)
-        discount = data.get("discount")
+        discount = ((float(data.get("discount"))/100) * price) if data.get("discount") else 0.00
         seller = (
             request.user
             if request.user.is_authenticated and request.user.profile.is_seller
@@ -96,7 +98,7 @@ def add_product(request):
             description=description,
             price=price,
             category=category,
-            discounted_price=discount,
+            discount=discount,
             user_vendor=seller,
         )
         messages.success(request, "Product added successfully!")
@@ -113,10 +115,10 @@ def add_service(request):
         data = request.POST
         name = data.get("name")
         description = data.get("description")
-        price = data.get("price")
+        price = float(data.get("price"))
         category_id = data.get("category")
         category = get_object_or_404(ServiceCategory, id=category_id)
-        discount = data.get("discount")
+        discount = ((float(data.get("discount"))/100) * price) if data.get("discount") else 0.00
         seller = (
             request.user
             if request.user.is_authenticated and request.user.profile.is_seller
@@ -129,7 +131,7 @@ def add_service(request):
             description=description,
             price=price,
             category=category,
-            discounted_price=discount,
+            discount=discount,
             user_provider=seller,
         )
         messages.success(request, "Service added successfully!")
@@ -288,32 +290,60 @@ class SignupView(View):
 
 
 class VerifyEmailView(View):
-    template_name = "verify_result.html"
+    """
+    Two-step email verification:
+    - GET  /accounts/verify/<token>/  -> show confirmation page with a button
+    - POST /accounts/verify/<token>/  -> re-check token + expiry, then activate
+    """
+    
+    confirm_template = "activation_confirm.html"
+    result_template = "verify_result.html"
 
-    def get(self, request, token):
-        # Look for the token in UserProfile instead of User
+    def _get_profile_for_token(self, token):
+        from django.utils import timezone
         try:
-            profile = UserProfile.objects.select_related('user').get(
+            profile = UserProfile.objects.select_related("user").get(
                 email_token=token,
-                pending_email_verification=True
+                pending_email_verification=True,
             )
         except UserProfile.DoesNotExist:
-            messages.error(request, "Invalid or used verification link.")
-            return render(request, self.template_name, {"status": "error"})
+            return None, "invalid"
 
-        # Check expiration
-        if (profile.email_token_expires_at and 
-            profile.email_token_expires_at < timezone.now()):
-            messages.error(request, "This verification link has expired.")
-            return render(request, self.template_name, {"status": "expired"})
+        # Expiration check
+        if profile.email_token_expires_at and profile.email_token_expires_at < timezone.now():
+            return None, "expired"
 
-        # Mark as verified
+        return profile, "ok"
+
+    def get(self, request, token):
+        # Show the confirmation page only (do NOT activate here)
+        profile, status = self._get_profile_for_token(token)
+        if status != "ok":
+            # Render a generic result page the app already uses
+            return render(request, self.result_template, {"status": status})
+
+        return render(
+            request,
+            self.confirm_template,
+            {
+                "user": profile.user,
+                "token": token,  # included as hidden field in the form
+            },
+        )
+
+    def post(self, request, token):
+        # Only a human click (POST) can activate the account
+        profile, status = self._get_profile_for_token(token)
+        if status != "ok":
+            return render(request, self.result_template, {"status": status})
+
+        # Re-check that the token still matches (defense-in-depth)
+        if profile.email_token != token or not profile.pending_email_verification:
+            return render(request, self.result_template, {"status": "invalid"})
+
+        # Mark verified
         profile.mark_verified()
-        
-        # Log the user in automatically after verification
-        if not request.user.is_authenticated:
-            login(request, profile.user)
-        
+
         messages.success(request, "Email verified. You can now use all features.")
         return render(request, "home.html", {"status": "ok"})
 
@@ -412,3 +442,64 @@ def start_conversation_from_listing(request, listing_type, listing_id):
         messages.info(request, f'You already have a conversation about {listing.name}')
     
     return redirect('store_app:conversation', conversation_id=conversation.id)
+        return render(request, self.result_template, {"status": "ok"})
+
+def _send_verification_email(request, user, profile):
+  """
+  Generates a fresh token (60 min expiry) and sends the verification email.
+  The email instructs the user to press the button on the page (two-step activation).
+  """
+  token = new_email_token()
+  profile.email_token = token
+  profile.email_token_expires_at = timezone.now() + timedelta(minutes=60)
+  profile.pending_email_verification = True
+  profile.save(update_fields=["email_token", "email_token_expires_at", "pending_email_verification"])
+
+  activate_url = request.build_absolute_uri(
+      reverse("store_app:verify_email", kwargs={"token": token})
+  )
+  ctx = {"username": user.username, "activate_url": activate_url}
+
+  html_body = render_to_string("emails/verify_email.html", ctx)
+  email = EmailMessage(
+      subject="Verify your RUM Marketplace email",
+      body=html_body,
+      from_email=settings.DEFAULT_FROM_EMAIL,
+      to=[user.email],
+  )
+  email.content_subtype = "html"
+  email.send(fail_silently=False)
+
+class ResendVerificationView(View):
+    template_name = "verify_result.html"
+
+    def getResendVerifiaction(self, request):
+        # show the small form
+        return render(request, self.template_name, {"status": "resend_form"})
+
+    def createResendVerification(self, request):
+        email = (request.POST.get("email") or "").strip().lower()
+        if not email:
+            messages.error(request, "Please enter your email.")
+            return render(request, self.template_name, {"status": "resend_form"})
+
+        # look for a user profile with pending verification
+        profile = (
+            UserProfile.objects.select_related("user")
+            .filter(
+                Q(user__email__iexact=email),
+                Q(pending_email_verification=True),
+            )
+            .first()
+        )
+        if not profile:
+            messages.error(request, "We didn't find a pending verification for that email.")
+            return render(request, self.template_name, {"status": "resend_form"})
+
+        try:
+            _send_verification_email(request, profile.user, profile)
+            messages.success(request, "We sent you a new verification email.")
+            return render(request, self.template_name, {"status": "resent"})
+        except Exception:
+            messages.error(request, "Couldn't send the email right now. Try again shortly.")
+            return render(request, self.template_name, {"status": "resend_form"})
