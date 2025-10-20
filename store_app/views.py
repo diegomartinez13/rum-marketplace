@@ -442,7 +442,7 @@ def start_conversation_from_listing(request, listing_type, listing_id):
         messages.info(request, f'You already have a conversation about {listing.name}')
     
     return redirect('store_app:conversation', conversation_id=conversation.id)
-        return render(request, self.result_template, {"status": "ok"})
+    return render(request, self.result_template, {"status": "ok"})
 
 def _send_verification_email(request, user, profile):
   """
