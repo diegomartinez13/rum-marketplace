@@ -316,7 +316,7 @@ class Conversation(models.Model):
     
     def get_latest_message(self):
         """Get the latest message in this conversation"""
-        return self.messages.first()
+        return self.messages.last()
     
     @classmethod
     def get_or_create_conversation(cls, user1, user2):

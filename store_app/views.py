@@ -8,6 +8,7 @@ from django.core.mail import EmailMessage
 from django.db import transaction
 from django.db.models import Q
 from django.contrib.auth import authenticate, login, logout
+from django.utils import timezone
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 import logging
@@ -74,6 +75,7 @@ def messages_view(request):
         'conversations': conversations_with_context,
     }
     return render(request, "messages.html", context)
+
 
 @login_required
 def add_product(request):
@@ -348,6 +350,68 @@ class VerifyEmailView(View):
         return render(request, "home.html", {"status": "ok"})
 
 
+
+def _send_verification_email(request, user, profile):
+  """
+  Generates a fresh token (60 min expiry) and sends the verification email.
+  The email instructs the user to press the button on the page (two-step activation).
+  """
+  token = new_email_token()
+  profile.email_token = token
+  profile.email_token_expires_at = timezone.now() + timedelta(minutes=60)
+  profile.pending_email_verification = True
+  profile.save(update_fields=["email_token", "email_token_expires_at", "pending_email_verification"])
+
+  activate_url = request.build_absolute_uri(
+      reverse("store_app:verify_email", kwargs={"token": token})
+  )
+  ctx = {"username": user.username, "activate_url": activate_url}
+
+  html_body = render_to_string("emails/verify_email.html", ctx)
+  email = EmailMessage(
+      subject="Verify your RUM Marketplace email",
+      body=html_body,
+      from_email=settings.DEFAULT_FROM_EMAIL,
+      to=[user.email],
+  )
+  email.content_subtype = "html"
+  email.send(fail_silently=False)
+
+class ResendVerificationView(View):
+    template_name = "verify_result.html"
+
+    def getResendVerifiaction(self, request):
+        # show the small form
+        return render(request, self.template_name, {"status": "resend_form"})
+
+    def createResendVerification(self, request):
+        email = (request.POST.get("email") or "").strip().lower()
+        if not email:
+            messages.error(request, "Please enter your email.")
+            return render(request, self.template_name, {"status": "resend_form"})
+
+        # look for a user profile with pending verification
+        profile = (
+            UserProfile.objects.select_related("user")
+            .filter(
+                Q(user__email__iexact=email),
+                Q(pending_email_verification=True),
+            )
+            .first()
+        )
+        if not profile:
+            messages.error(request, "We didn't find a pending verification for that email.")
+            return render(request, self.template_name, {"status": "resend_form"})
+
+        try:
+            _send_verification_email(request, profile.user, profile)
+            messages.success(request, "We sent you a new verification email.")
+            return render(request, self.template_name, {"status": "resent"})
+        except Exception:
+            messages.error(request, "Couldn't send the email right now. Try again shortly.")
+            return render(request, self.template_name, {"status": "resend_form"})
+
+
 @login_required
 def conversation_view(request, conversation_id):
     """Display a specific conversation and handle sending messages"""
@@ -364,10 +428,28 @@ def conversation_view(request, conversation_id):
             )
             # Update conversation's updated_at timestamp
             conversation.save()
-            messages.success(request, 'Message sent!')
-            return redirect('store_app:conversation', conversation_id=conversation_id)
+            
+            # Check if it's an AJAX request
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.headers.get('Content-Type') == 'application/x-www-form-urlencoded':
+                from django.http import JsonResponse
+                return JsonResponse({
+                    'success': True,
+                    'message': {
+                        'sender': message.sender.username,
+                        'sender_name': message.sender.get_full_name() or message.sender.username,
+                        'content': message.content,
+                        'timestamp': message.created_at.strftime('%b %d, %Y %I:%M %p')
+                    }
+                })
+            else:
+                messages.success(request, 'Message sent!')
+                return redirect('store_app:conversation', conversation_id=conversation_id)
         else:
-            messages.error(request, 'Message cannot be empty.')
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.headers.get('Content-Type') == 'application/x-www-form-urlencoded':
+                from django.http import JsonResponse
+                return JsonResponse({'success': False, 'error': 'Message cannot be empty.'})
+            else:
+                messages.error(request, 'Message cannot be empty.')
     
     # Mark all messages in this conversation as read (except those sent by current user)
     conversation.messages.filter(is_read=False).exclude(sender=request.user).update(
@@ -442,64 +524,3 @@ def start_conversation_from_listing(request, listing_type, listing_id):
         messages.info(request, f'You already have a conversation about {listing.name}')
     
     return redirect('store_app:conversation', conversation_id=conversation.id)
-    return render(request, self.result_template, {"status": "ok"})
-
-def _send_verification_email(request, user, profile):
-  """
-  Generates a fresh token (60 min expiry) and sends the verification email.
-  The email instructs the user to press the button on the page (two-step activation).
-  """
-  token = new_email_token()
-  profile.email_token = token
-  profile.email_token_expires_at = timezone.now() + timedelta(minutes=60)
-  profile.pending_email_verification = True
-  profile.save(update_fields=["email_token", "email_token_expires_at", "pending_email_verification"])
-
-  activate_url = request.build_absolute_uri(
-      reverse("store_app:verify_email", kwargs={"token": token})
-  )
-  ctx = {"username": user.username, "activate_url": activate_url}
-
-  html_body = render_to_string("emails/verify_email.html", ctx)
-  email = EmailMessage(
-      subject="Verify your RUM Marketplace email",
-      body=html_body,
-      from_email=settings.DEFAULT_FROM_EMAIL,
-      to=[user.email],
-  )
-  email.content_subtype = "html"
-  email.send(fail_silently=False)
-
-class ResendVerificationView(View):
-    template_name = "verify_result.html"
-
-    def getResendVerifiaction(self, request):
-        # show the small form
-        return render(request, self.template_name, {"status": "resend_form"})
-
-    def createResendVerification(self, request):
-        email = (request.POST.get("email") or "").strip().lower()
-        if not email:
-            messages.error(request, "Please enter your email.")
-            return render(request, self.template_name, {"status": "resend_form"})
-
-        # look for a user profile with pending verification
-        profile = (
-            UserProfile.objects.select_related("user")
-            .filter(
-                Q(user__email__iexact=email),
-                Q(pending_email_verification=True),
-            )
-            .first()
-        )
-        if not profile:
-            messages.error(request, "We didn't find a pending verification for that email.")
-            return render(request, self.template_name, {"status": "resend_form"})
-
-        try:
-            _send_verification_email(request, profile.user, profile)
-            messages.success(request, "We sent you a new verification email.")
-            return render(request, self.template_name, {"status": "resent"})
-        except Exception:
-            messages.error(request, "Couldn't send the email right now. Try again shortly.")
-            return render(request, self.template_name, {"status": "resend_form"})
