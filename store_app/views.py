@@ -88,6 +88,7 @@ def add_product(request):
         category_id = data.get("category")
         category = get_object_or_404(ProductCategory, id=category_id)
         discount = ((float(data.get("discount"))/100) * price) if data.get("discount") else 0.00
+        image = request.FILES.get("image")
         seller = (
             request.user
             if request.user.is_authenticated and request.user.profile.is_seller
@@ -101,6 +102,7 @@ def add_product(request):
             price=price,
             category=category,
             discount=discount,
+            image=image,
             user_vendor=seller,
         )
         messages.success(request, "Product added successfully!")
@@ -121,6 +123,7 @@ def add_service(request):
         category_id = data.get("category")
         category = get_object_or_404(ServiceCategory, id=category_id)
         discount = ((float(data.get("discount"))/100) * price) if data.get("discount") else 0.00
+        image = request.FILES.get("image")
         seller = (
             request.user
             if request.user.is_authenticated and request.user.profile.is_seller
@@ -134,6 +137,7 @@ def add_service(request):
             price=price,
             category=category,
             discount=discount,
+            image=image,
             user_provider=seller,
         )
         messages.success(request, "Service added successfully!")
