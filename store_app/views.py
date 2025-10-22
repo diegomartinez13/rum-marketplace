@@ -89,12 +89,6 @@ def add_product(request):
         category = get_object_or_404(ProductCategory, id=category_id)
         discount = ((float(data.get("discount"))/100) * price) if data.get("discount") else 0.00
         image = request.FILES.get("image")
-        seller = (
-            request.user
-            if request.user.is_authenticated and request.user.profile.is_seller
-            else messages.error(request, "You must be a seller to add a product.")
-            and redirect("store_app:login")
-        )
 
         Product.objects.create(
             name=name,
@@ -103,7 +97,7 @@ def add_product(request):
             category=category,
             discount=discount,
             image=image,
-            user_vendor=seller,
+            user_vendor=request.user,  # Automatically set logged-in user as vendor
         )
         messages.success(request, "Product added successfully!")
         return redirect("store_app:home")
@@ -124,12 +118,6 @@ def add_service(request):
         category = get_object_or_404(ServiceCategory, id=category_id)
         discount = ((float(data.get("discount"))/100) * price) if data.get("discount") else 0.00
         image = request.FILES.get("image")
-        seller = (
-            request.user
-            if request.user.is_authenticated and request.user.profile.is_seller
-            else messages.error(request, "You must be a seller to add a product.")
-            and redirect("store_app:login")
-        )
 
         Service.objects.create(
             name=name,
@@ -138,7 +126,7 @@ def add_service(request):
             category=category,
             discount=discount,
             image=image,
-            user_provider=seller,
+            user_provider=request.user,  # Automatically set logged-in user as provider
         )
         messages.success(request, "Service added successfully!")
         return redirect("store_app:home")
