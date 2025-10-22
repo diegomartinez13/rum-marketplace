@@ -30,22 +30,29 @@
     {% for product in products %}
     <div class="col-md-4 mb-4">
       <div class="card">
-        <img src="media/{{ product.image}}" class="card-img-top" alt="{{ product.name }}" height="250px"
+        <img src="/media/{{ product.image }}" class="card-img-top" alt="{{ product.name }}" height="250px"
           style="object-fit: scale-down;">
         <div class="card-body">
           <h5 class="card-title">{{ product.name }}</h5>
           {% if user.is_authenticated %}
-            <p class="card-text">{{ product.description }}</p>
-            {% if product.discount %}
-              <p class="card-text">
-                <strong>Price:</strong>
-                <span class="text-decoration-line-through text-muted">${{ product.price }}</span>
-                <span class="text-danger ms-2">${{ product.final_price }}</span>
-              </p>
-            {% else %}
-              <p class="card-text"><strong>Price:</strong> ${{ product.price }}</p>
-            {% endif %}
+          <p class="card-text">{{ product.description }}</p>
+          {% if product.discount %}
+          <p class="card-text">
+            <strong>Price:</strong>
+            <span class="text-decoration-line-through text-muted">${{ product.price }}</span>
+            <span class="text-danger ms-2">${{ product.final_price }}</span>
+          </p>
+          {% else %}
+          <p class="card-text"><strong>Price:</strong> ${{ product.price }}</p>
+          {% endif %}
+          <div class="d-flex gap-2">
             <a href="#" class="btn btn-outline-secondary">View Details</a>
+            {% if product.user_vendor != user %}
+            <a href="{% url 'store_app:message_listing' 'product' product.id %}" class="btn btn-outline-primary">
+              <i class="bi bi-chat me-1"></i>Message Seller
+            </a>
+            {% endif %}
+          </div>
           {% endif %}
         </div>
       </div>
@@ -65,17 +72,25 @@
         <div class="card-body">
           <h5 class="card-title">{{ service.name }}</h5>
           {% if user.is_authenticated %}
-            <p class="card-text">{{ service.description }}</p>
-            {% if service.discount %}
-              <p class="card-text">
-                <strong>Price:</strong>
-                <span class="text-decoration-line-through text-muted">${{ service.price }}</span>
-                <span class="text-danger ms-2">${{ service.price|floatformat:2|add:"-"|add:service.discount|floatformat:2 }}</span>
-              </p>
-            {% else %}
-              <p class="card-text"><strong>Price:</strong> ${{ service.price }}</p>
-            {% endif %}
+          <p class="card-text">{{ service.description }}</p>
+          {% if service.discount %}
+          <p class="card-text">
+            <strong>Price:</strong>
+            <span class="text-decoration-line-through text-muted">${{ service.price }}</span>
+            <span class="text-danger ms-2">${{ service.price|floatformat:2|add:"-"|add:service.discount|floatformat:2
+              }}</span>
+          </p>
+          {% else %}
+          <p class="card-text"><strong>Price:</strong> ${{ service.price }}</p>
+          {% endif %}
+          <div class="d-flex gap-2">
             <a href="#" class="btn btn-outline-secondary">View Details</a>
+            {% if service.user_provider != user %}
+            <a href="{% url 'store_app:message_listing' 'service' service.id %}" class="btn btn-outline-primary">
+              <i class="bi bi-chat me-1"></i>Message Provider
+            </a>
+            {% endif %}
+          </div>
           {% endif %}
         </div>
       </div>
@@ -92,9 +107,7 @@
     <span style="font-weight: 600; color: rgb(25, 135, 84);">Add Listing</span>
   </a>
 </div>
-{% endif %}
 
-{% if user.is_authenticated %}
 <!-- Floating Messages Button -->
 <div class="floating-messages-button">
   <a href="{% url 'store_app:messages' %}" class="btn btn-primary shadow-lg floating-btn">
@@ -103,6 +116,7 @@
   </a>
 </div>
 {% endif %}
+
 
 <style>
   .floating-add-button {
@@ -162,6 +176,7 @@
     border-color: #0d6efd !important;
   }
 
+
   /* Mobile screens */
   @media (max-width: 768px) {
     .floating-add-button {
@@ -173,6 +188,7 @@
       bottom: 3vw;
       left: 3vw;
     }
+
 
     .floating-btn {
       padding: 0.8vw 1.5vw;

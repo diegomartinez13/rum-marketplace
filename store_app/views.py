@@ -8,6 +8,7 @@ from django.core.mail import EmailMessage
 from django.db import transaction
 from django.db.models import Q
 from django.contrib.auth import authenticate, login, logout
+from django.utils import timezone
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 import logging
@@ -25,6 +26,8 @@ from .models import (
     Service,
     ServiceCategory,
     UserProfile,
+    Conversation,
+    Message,
 )
 from .tokens import new_email_token
 
@@ -49,8 +52,30 @@ def home(request):
 def add_listing(request):
     return render(request, "add_listing.html")
 
+@login_required
 def messages_view(request):
-    return render(request, "messages.html")
+    """Display all conversations for the logged-in user"""
+    conversations = Conversation.objects.filter(participants=request.user).prefetch_related('participants', 'messages')
+    
+    # Add context for each conversation
+    conversations_with_context = []
+    for conv in conversations:
+        other_participant = conv.get_other_participant(request.user)
+        latest_message = conv.get_latest_message()
+        unread_count = conv.messages.filter(is_read=False).exclude(sender=request.user).count()
+        
+        conversations_with_context.append({
+            'conversation': conv,
+            'other_participant': other_participant,
+            'latest_message': latest_message,
+            'unread_count': unread_count,
+        })
+    
+    context = {
+        'conversations': conversations_with_context,
+    }
+    return render(request, "messages.html", context)
+
 
 @login_required
 def add_product(request):
@@ -322,7 +347,9 @@ class VerifyEmailView(View):
         profile.mark_verified()
 
         messages.success(request, "Email verified. You can now use all features.")
-        return render(request, self.result_template, {"status": "ok"})
+        return render(request, "home.html", {"status": "ok"})
+
+
 
 def _send_verification_email(request, user, profile):
   """
@@ -383,3 +410,117 @@ class ResendVerificationView(View):
         except Exception:
             messages.error(request, "Couldn't send the email right now. Try again shortly.")
             return render(request, self.template_name, {"status": "resend_form"})
+
+
+@login_required
+def conversation_view(request, conversation_id):
+    """Display a specific conversation and handle sending messages"""
+    conversation = get_object_or_404(Conversation, id=conversation_id, participants=request.user)
+    
+    if request.method == 'POST':
+        content = request.POST.get('content', '').strip()
+        if content:
+            # Create new message
+            message = Message.objects.create(
+                conversation=conversation,
+                sender=request.user,
+                content=content
+            )
+            # Update conversation's updated_at timestamp
+            conversation.save()
+            
+            # Check if it's an AJAX request
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.headers.get('Content-Type') == 'application/x-www-form-urlencoded':
+                from django.http import JsonResponse
+                return JsonResponse({
+                    'success': True,
+                    'message': {
+                        'sender': message.sender.username,
+                        'sender_name': message.sender.get_full_name() or message.sender.username,
+                        'content': message.content,
+                        'timestamp': message.created_at.strftime('%b %d, %Y %I:%M %p')
+                    }
+                })
+            else:
+                messages.success(request, 'Message sent!')
+                return redirect('store_app:conversation', conversation_id=conversation_id)
+        else:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.headers.get('Content-Type') == 'application/x-www-form-urlencoded':
+                from django.http import JsonResponse
+                return JsonResponse({'success': False, 'error': 'Message cannot be empty.'})
+            else:
+                messages.error(request, 'Message cannot be empty.')
+    
+    # Mark all messages in this conversation as read (except those sent by current user)
+    conversation.messages.filter(is_read=False).exclude(sender=request.user).update(
+        is_read=True, 
+        read_at=timezone.now()
+    )
+    
+    # Get all messages in this conversation
+    messages_list = conversation.messages.all()
+    other_participant = conversation.get_other_participant(request.user)
+    
+    context = {
+        'conversation': conversation,
+        'messages': messages_list,
+        'other_participant': other_participant,
+    }
+    return render(request, "conversation.html", context)
+
+
+@login_required
+def start_conversation(request, user_id):
+    """Start a new conversation with another user"""
+    other_user = get_object_or_404(User, id=user_id)
+    
+    if other_user == request.user:
+        messages.error(request, "You cannot start a conversation with yourself.")
+        return redirect('store_app:home')
+    
+    # Get or create conversation
+    conversation, created = Conversation.get_or_create_conversation(request.user, other_user)
+    
+    if not created:
+        messages.info(request, f'You already have a conversation with {other_user.get_full_name() or other_user.username}')
+    
+    return redirect('store_app:conversation', conversation_id=conversation.id)
+
+
+@login_required
+def start_conversation_from_listing(request, listing_type, listing_id):
+    """Start a conversation from a product or service listing"""
+    if listing_type == 'product':
+        listing = get_object_or_404(Product, id=listing_id)
+        seller = listing.user_vendor
+    elif listing_type == 'service':
+        listing = get_object_or_404(Service, id=listing_id)
+        seller = listing.user_provider
+    else:
+        messages.error(request, "Invalid listing type.")
+        return redirect('store_app:home')
+    
+    if not seller:
+        messages.error(request, "This listing has no seller.")
+        return redirect('store_app:home')
+    
+    if seller == request.user:
+        messages.error(request, "You cannot message yourself about your own listing.")
+        return redirect('store_app:home')
+    
+    # Get or create conversation
+    conversation, created = Conversation.get_or_create_conversation(request.user, seller)
+    
+    # Link conversation to the listing
+    if listing_type == 'product':
+        conversation.product = listing
+    else:
+        conversation.service = listing
+    conversation.save()
+    
+    if created:
+        messages.success(request, f'Started conversation with {seller.get_full_name() or seller.username} about {listing.name}')
+    else:
+        messages.info(request, f'You already have a conversation about {listing.name}')
+    
+    return redirect('store_app:conversation', conversation_id=conversation.id)

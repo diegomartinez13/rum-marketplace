@@ -1,4 +1,33 @@
 {% load static %}
+<style>
+  /* Fix dropdown overflow issues */
+  .dropdown-menu {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .navbar {
+    position: relative;
+    z-index: 1000;
+  }
+
+  .dropdown {
+    position: static;
+  }
+
+  .dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: auto;
+    right: 0;
+    z-index: 1001;
+  }
+
+  /* Ensure dropdown doesn't get clipped */
+  .navbar-collapse {
+    overflow: visible !important;
+  }
+</style>
 <!-- Navbar -->
 <nav class="navbar navbar-expand-lg bg-success navbar-light">
   <div class="container-fluid px-0 px-lg-0">
