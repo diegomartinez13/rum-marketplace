@@ -1,0 +1,113 @@
+{# Profile Page #}
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+{% if messages %}
+  {% for message in messages %}
+  <div class="alert alert-{{ message.tags }}">
+    {{ message }}
+    <div class="float-end">
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+  </div>
+  {% endfor %}
+{% endif %}
+
+<!-- Profile Information -->
+<div class="container-fluid mt-5" >
+  <div class="row justify-content-center">
+    <div class="col-md-5">
+      <div class="card">
+        <div class="card-header bg-success text-white">
+          <h3 class="card-title mb-0">User Profile</h3>
+        </div>
+        <div class="card-body">
+          <h5 class="card-title"><strong>Username:</strong> {{ user.username }}</h5>
+          <p class="card-text"><strong>Email:</strong> {{ user.email }}</p>
+          <p class="card-text"><strong>First Name:</strong> {{ user.first_name }}</p>
+          <p class="card-text"><strong>Last Name:</strong> {{ user.last_name }}</p>
+          <p class="card-text"><strong>Phone Number:</strong> {{ profile.phone_number }}</p>
+          <p class="card-text"><strong>Type:</strong></p>
+          <div class="d-flex">
+            <div class="rounded-pill bg-success text-white p-2 mx-3 mb-2 text-center">Buyer</div>
+            {% if profile.is_seller %}
+              <div class="rounded-pill bg-success text-white p-2 mx-3 mb-2 text-center">Seller</div>
+            {% endif %}
+            {% if profile.provides_service %}
+              <div class="rounded-pill bg-success text-white p-2 mx-3 mb-2 text-center">Service Provider</div>
+            {% endif %}
+            <hr>
+          </div>
+
+          <div class="d-flex justify-content-end mt-3">
+            <a href="{% url 'store_app:update_profile' user.id %}" class="btn btn-primary mt-3">
+              <i class="bi bi-pencil-square me-1"></i>Edit Profile
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Get Products by User -->
+<div class="container mt-5">
+  <h3 class="mb-4">Your Listings</h3>
+  <div class="row">
+    <h4 class="mb-3">Products</h4>
+    {% for product in user_products %}
+    <div class="col-md-4 mb-4">
+      <div class="card">
+        <img src="/media/{{ product.image }}" class="card-img-top" alt="{{ product.name }}" height="250px"
+          style="object-fit: scale-down;">
+        <div class="card-body">
+          <h5 class="card-title">{{ product.name }}</h5>
+          <p class="card-text">{{ product.description }}</p>
+          {% if product.discount %}
+          <p class="card-text">
+            <strong>Price:</strong>
+            <span class="text-decoration-line-through text-muted">${{ product.price }}</span>
+            <span class="text-danger ms-2">${{ product.final_price }}</span>
+          </p>
+          {% else %}
+          <p class="card-text"><strong>Price:</strong> ${{ product.price }}</p>
+          {% endif %}
+          <div class="d-flex justify-content-between align-items-center">
+            <a href="#" class="btn btn-outline-secondary">Edit Product Info</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% empty %}
+    <p>You have no product listings.</p>
+    {% endfor %}
+  </div>
+  <div class="row mt-4">
+    <h4 class="mb-3">Services</h4>
+    {% for service in user_services %}
+    <div class="col-md-4 mb-4">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">{{ service.name }}</h5>
+          <p class="card-text">{{ service.description }}</p>
+          {% if service.discount %}
+          <p class="card-text">
+            <strong>Price:</strong>
+            <span class="text-decoration-line-through text-muted">${{ service.price }}</span>
+            <span class="text-danger ms-2">${{ service.final_price }}</span>
+          </p>
+          {% else %}
+          <p class="card-text"><strong>Price:</strong> ${{ service.price }}</p>
+          {% endif %}
+          <div class="d-flex justify-content-between align-items-center">
+            <a href="#" class="btn btn-outline-secondary">Edit Service Info</a>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% empty %}
+    <p>You have no service listings.</p>
+    {% endfor %}
+</div>
+{% endblock %}

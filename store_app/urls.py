@@ -26,4 +26,10 @@ urlpatterns = [
     path("message-listing/<str:listing_type>/<int:listing_id>/", views.start_conversation_from_listing, name="message_listing"),
     path("add-product/", views.add_product, name="add-product"),
     path("add-service/", views.add_service, name="add-service"),
+    path("profile/", views.profile, name="profile"),
+    path("update-profile/<int:user_id>/", views.update_profile, name="update_profile"),
+    # path("product/<int:product_id>/", views.product_detail, name="product_detail"),
+    # path("service/<int:service_id>/", views.service_detail, name="service_detail"),
+    path("all-products/", views.all_products, name="all_products"),
+    path("all-services/", views.all_services, name="all_services"),
 ]

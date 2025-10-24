@@ -1,0 +1,59 @@
+{# all_products.html #}
+{% extends 'base.html' %}
+
+
+{% block content %}
+<!-- Display messages -->
+{% if messages %}
+{% for message in messages %}
+<div class="alert alert-{{ message.tags }}">
+  {{ message }}
+  <div class="float-end"> 
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+  </div>
+</div>
+{% endfor %}
+{% endif %}
+
+<!-- Product Display -->
+{% if products %}
+<div class="container mt-4">
+  <h2 class="mb-4">All Products</h2>
+  <div class="row">
+    {% for product in products %}
+    <div class="col-md-4 mb-4">
+      <div class="card">
+        <img src="/media/{{ product.image }}" class="card-img-top" alt="{{ product.name }}" height="250px"
+          style="object-fit: scale-down;">
+        <div class="card-body">
+          <h5 class="card-title">{{ product.name }}</h5>
+          {% if user.is_authenticated %}
+          <p class="card-text">{{ product.description }}</p>
+          {% if product.discount %}
+          <p class="card-text">
+            <strong>Price:</strong>
+            <span class="text-decoration-line-through text-muted">${{ product.price }}</span>
+            <span class="text-danger ms-2">${{ product.final_price }}</span>
+          </p>
+          {% else %}
+          <p class="card-text"><strong>Price:</strong> ${{ product.price }}</p>
+          {% endif %}
+          <div class="d-flex gap-2">
+            <a href="#" class="btn btn-outline-secondary">View Details</a>
+            {% if product.user_vendor != user %}
+            <a href="{% url 'store_app:message_listing' 'product' product.id %}" class="btn btn-outline-primary">
+              <i class="bi bi-chat me-1"></i>Message Seller
+            </a>
+            {% endif %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% else %}
+<p class="text-center mt-5">No products available.</p>
+{% endif %}
+{% endblock %}

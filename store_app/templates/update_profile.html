@@ -1,0 +1,56 @@
+{# Update Profile Page #}
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid mt-5">
+  <div class="row justify-content-center">
+    <div class="col-md-5">
+      <div class="card">
+        <div class="card-header bg-success text-white">
+          <h3 class="card-title mb-0">Edit Profile</h3>
+        </div>
+        <div class="card-body">
+          <form method="POST" action="{% url 'store_app:profile' %}">
+            {% csrf_token %}
+            <div class="mb-3">
+              <label for="first_name" class="form-label">First Name</label>
+              <input type="text" class="form-control" id="first_name" name="first_name" value="{{ user.first_name }}">
+            </div>
+            <div class="mb-3">
+              <label for="last_name" class="form-label">Last Name</label>
+              <input type="text" class="form-control" id="last_name" name="last_name" value="{{ user.last_name }}">
+            </div>
+            <div class="mb-3">
+              <label for="email" class="form-label">Email</label>
+              <input type="email" class="form-control" id="email" name="email" value="{{ user.email }}">
+            </div>
+            <div class="mb-3">
+              <label for="phone_number" class="form-label">Phone Number</label>
+              <input type="text" class="form-control" id="phone_number" name="phone_number"
+                value="{{ profile.phone_number }}">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">User Type</label><br>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="is_seller" name="is_seller" {% if profile.is_seller %} checked {% endif %}>
+                <label class="form-check-label" for="is_seller">Seller</label>
+              </div>
+              <div class="form-check form-check-inline">
+                <input class="form-check-input" type="checkbox" id="provides_service" name="provides_service" {% if profile.provides_service %} checked {% endif %}>
+                <label class="form-check-label" for="provides_service">Service Provider</label>
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+          </form>
+          {% if messages %}
+          {% for message in messages %}
+          <div class="alert alert-info">{{ message }}</div>
+          {% endfor %}
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

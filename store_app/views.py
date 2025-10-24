@@ -12,7 +12,7 @@ from django.utils import timezone
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 import logging
-
+from django.http import JsonResponse
 from datetime import timedelta
 from django.utils import timezone
 from django.core.mail import send_mail
@@ -516,3 +516,58 @@ def start_conversation_from_listing(request, listing_type, listing_id):
         messages.info(request, f'You already have a conversation about {listing.name}')
     
     return redirect('store_app:conversation', conversation_id=conversation.id)
+
+
+def profile(request):
+    """Display and edit user profile"""
+    user = request.user
+    profile = user.profile  # type: ignore
+    products = Product.objects.filter(user_vendor=user)
+    services = Service.objects.filter(user_provider=user)
+    
+    if request.method == "POST":
+        # Update profile fields
+        user.first_name = request.POST.get("first_name", user.first_name).strip()
+        user.last_name = request.POST.get("last_name", user.last_name).strip()
+        profile.phone_number = request.POST.get("phone_number", profile.phone_number).strip()
+        user.save()
+        profile.save()
+        messages.success(request, "Profile updated successfully.")
+        return redirect("store_app:profile")
+
+    context = {
+        "user": user,
+        "profile": profile,
+        "user_products": products,
+        "user_services": services,
+    }
+    return render(request, "profile.html", context)
+
+def update_profile(request, user_id):
+    """Update user profile information"""
+    user = get_object_or_404(User, id=user_id)
+    profile = user.profile  # type: ignore
+
+    context = {
+        "user": user,
+        "profile": profile,
+    }
+    return render(request, "update_profile.html", context)
+
+def all_products(request):
+    """Display all products"""
+    products = Product.objects.all()
+    context = {
+        "products": products,
+        "user": request.user,
+    }
+    return render(request, "all_products.html", context)
+
+def all_services(request):
+    """Display all services"""
+    services = Service.objects.all()
+    context = {
+        "services": services,
+        "user": request.user,
+    }
+    return render(request, "all_services.html", context)
