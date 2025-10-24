@@ -1,0 +1,57 @@
+{# all_services.html #}
+{% extends 'base.html' %}
+
+
+{% block content %}
+<!-- Display messages -->
+{% if messages %}
+{% for message in messages %}
+<div class="alert alert-{{ message.tags }}">
+  {{ message }}
+  <div class="float-end"> 
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+  </div>
+</div>
+{% endfor %}
+{% endif %}
+
+<!-- Service Display -->
+{% if services %}
+<div class="container mt-4">
+  <h2 class="mb-4">All Services</h2>
+  <div class="row">
+    {% for service in services %}
+    <div class="col-md-4 mb-4">
+      <div class="card">
+        <div class="card-body">
+          <h5 class="card-title">{{ service.name }}</h5>
+          {% if user.is_authenticated %}
+          <p class="card-text">{{ service.description }}</p>
+          {% if service.discount %}
+          <p class="card-text">
+            <strong>Price:</strong>
+            <span class="text-decoration-line-through text-muted">${{ service.price }}</span>
+            <span class="text-danger ms-2">${{ service.final_price }}</span>
+          </p>
+          {% else %}
+          <p class="card-text"><strong>Price:</strong> ${{ service.price }}</p>
+          {% endif %}
+          <div class="d-flex gap-2">
+            <a href="#" class="btn btn-outline-secondary">View Details</a>
+            {% if service.user_provider != user %}
+            <a href="{% url 'store_app:message_listing' 'service' service.id %}" class="btn btn-outline-primary">
+              <i class="bi bi-chat me-1"></i>Message Provider
+            </a>
+            {% endif %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% else %}
+<p class="text-center mt-5">No services available.</p>
+{% endif %}
+{% endblock %}

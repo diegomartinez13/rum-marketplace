@@ -29,7 +29,7 @@
   }
 </style>
 <!-- Navbar -->
-<nav class="navbar navbar-expand-lg bg-success navbar-light">
+<nav class="navbar navbar-expand-lg bg-success navbar-dark">
   <div class="container-fluid px-0 px-lg-0">
     <!-- Brand Logo -->
     <a class="navbar-brand d-flex align-items-center" href="{% url 'store_app:home' %}">
@@ -52,7 +52,10 @@
             aria-expanded="false">CATEGORIES</a>
           <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
             <li>
-              <a class="dropdown-item" href="#!">All Products</a>
+              <a class="dropdown-item" href="{% url 'store_app:all_products' %}">All Products</a>
+            </li>
+            <li>
+              <a class="dropdown-item" href="{% url 'store_app:all_services' %}">All Services</a>
             </li>
             <li>
               <hr class="dropdown-divider" />
@@ -70,7 +73,7 @@
       <form class="d-flex mx-3" style="flex: 1; max-width: 400px;" action="{% url 'store_app:search' %}" method="GET">
         <input class="form-control me-2" type="search" placeholder="Search products..." aria-label="Search" name="q"
           value="{{ query|default:'' }}">
-        <button class="btn btn-outline-primary" type="submit">
+        <button class="btn btn-primary" type="submit">
           <i class="bi bi-search"></i>
         </button>
       </form>
@@ -94,7 +97,7 @@
             {{ user.username }}
           </button>
           <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userMenuButton">
-            <li><a class="dropdown-item" href="">Profile</a></li>
+            <li><a class="dropdown-item" href="{% url 'store_app:profile' %}">Profile</a></li>
             <li><a class="dropdown-item" href="">Orders</a></li>
             <li>
               <hr class="dropdown-divider">

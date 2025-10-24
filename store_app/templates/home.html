@@ -24,6 +24,7 @@
 </header>
 
 <!-- Product Display -->
+{% if products%}
 <div class="container mt-4">
   <h2 class="mb-4">Available Products</h2>
   <div class="row">
@@ -60,9 +61,10 @@
     {% endfor %}
   </div>
 </div>
-
+{% endif %}
 
 <!-- Service Display -->
+{% if services %}
 <div class="container mt-4">
   <h2 class="mb-4">Available Services</h2>
   <div class="row">
@@ -98,11 +100,12 @@
     {% endfor %}
   </div>
 </div>
+{% endif %}
 
 {% if user.is_authenticated %}
 <!-- Floating Add Listing Button -->
 <div class="floating-add-button">
-  <a href="{% url 'store_app:add-listing' %}" class="btn btn-success shadow-lg floating-btn">
+  <a href="{% url 'store_app:add-listing' %}" class="btn btn-outline-success bg-light shadow-lg floating-btn">
     <i class="bi bi-plus me-1" style="color: rgb(25, 135, 84);"></i>
     <span style="font-weight: 600; color: rgb(25, 135, 84);">Add Listing</span>
   </a>
