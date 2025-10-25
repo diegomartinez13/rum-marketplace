@@ -11,7 +11,7 @@
         </div>
         <div class="card-body">
 
-          {# Show any Django messages (success/error) #}
+          {# Django flash messages (e.g., duplicates or other server-side errors) #}
           {% if messages %}
           <div class="mb-3">
             {% for message in messages %}
@@ -20,69 +20,300 @@
           </div>
           {% endif %}
 
-          {# You can also render form.errors if you pass the form context #}
           {% if form and form.non_field_errors %}
           <div class="alert alert-danger">{{ form.non_field_errors }}</div>
           {% endif %}
 
-          <form class="auth-form" action="{% url 'store_app:signup' %}" method="post" novalidate>
+          <form class="auth-form" action="{% url 'store_app:signup' %}" method="post" novalidate autocomplete="on">
             {% csrf_token %}
 
-            <!-- OPTIONAL fields (not required by backend yet) -->
+            <!-- Honeypot field -->
+            <input type="hidden" name="website" tabindex="-1" autocomplete="off" style="display:none">
+
+            <!-- First name (required) -->
             <div class="form-floating mb-3">
-              <input class="form-control" id="inputFirstName" name="first_name" type="text"
-                placeholder="Enter your first name" />
-              <label for="inputFirstName">First name (optional)</label>
-            </div>
-            <div class="form-floating mb-3">
-              <input class="form-control" id="inputLastName" name="last_name" type="text"
-                placeholder="Enter your last name" />
-              <label for="inputLastName">Last name (optional)</label>
+              <input
+                class="form-control"
+                id="inputFirstName"
+                name="first_name"
+                type="text"
+                placeholder="Enter your first name"
+                maxlength="50"
+                required
+              />
+              <!-- Label no longer mentions optional since this field is required -->
+              <label for="inputFirstName">First name</label>
+              <small id="inputFirstNameChars" class="form-text text-muted">50 characters remaining</small>
+              <div class="invalid-feedback" id="inputFirstNameErr"></div>
             </div>
 
-            <!-- REQUIRED by PreSignupForm -->
+            <!-- Last name (required) -->
             <div class="form-floating mb-3">
-              <input class="form-control" id="inputUsername" name="username" type="text" placeholder="Choose a username"
-                required />
+              <input
+                class="form-control"
+                id="inputLastName"
+                name="last_name"
+                type="text"
+                placeholder="Enter your last name"
+                maxlength="100"
+                required
+              />
+              <!-- Label no longer mentions optional since this field is required -->
+              <label for="inputLastName">Last name</label>
+              <small id="inputLastNameChars" class="form-text text-muted">100 characters remaining</small>
+              <div class="invalid-feedback" id="inputLastNameErr"></div>
+            </div>
+
+            <!-- Username (required) -->
+            <div class="form-floating mb-3">
+              <input
+                class="form-control"
+                id="inputUsername"
+                name="username"
+                type="text"
+                placeholder="Choose a username"
+                required
+                minlength="3"
+                maxlength="30"
+                pattern="^[a-zA-Z0-9._-]+$"
+                title="Letters, numbers, dot, underscore, hyphen only"
+              />
               <label for="inputUsername">Username</label>
+              <small id="inputUsernameChars" class="form-text text-muted">30 characters remaining</small>
+              <div class="invalid-feedback" id="inputUsernameErr"></div>
             </div>
 
+            <!-- Email (required, must be @upr.edu) -->
             <div class="form-floating mb-3">
-              <input class="form-control" id="inputEmail" name="email" type="email" placeholder="name@upr.edu" required
-                pattern="^[^@\\s]+@upr\\.edu$" title="Use your @upr.edu email" />
+              <input
+                class="form-control"
+                id="inputEmail"
+                name="email"
+                type="email"
+                inputmode="email"
+                placeholder="name@upr.edu"
+                required
+                maxlength="254"
+                pattern="^[^@\s]+@upr\.edu$"
+                title="Use your @upr.edu email"
+              />
               <label for="inputEmail">UPR Email (@upr.edu)</label>
+              <small id="inputEmailChars" class="form-text text-muted">254 characters remaining</small>
+              <div class="invalid-feedback" id="inputEmailErr"></div>
             </div>
 
-            <!-- OPTIONAL phone (ignored by backend for now) -->
+            <!-- Phone (optional) -->
             <div class="form-floating mb-3">
-              <input class="form-control" id="inputPhone" name="phone" type="tel"
-                placeholder="Enter your phone number" />
-              <label for="inputPhone">Phone Number (Optional)</label>
+              <input
+                class="form-control"
+                id="inputPhoneNumber"
+                name="phone_number"
+                type="tel"
+                placeholder="Enter your phone number"
+                inputmode="numeric"
+                maxlength="20"
+                pattern="^\+?[0-9\s-]{10,20}$"
+                title="10–20 digits; +, spaces, and hyphens allowed. No letters."
+              />
+              <label for="inputPhoneNumber">Phone Number (optional)</label>
+              <small id="inputPhoneNumberChars" class="form-text text-muted">20 characters remaining</small>
+              <div class="invalid-feedback" id="inputPhoneNumberErr"></div>
             </div>
 
+            <!-- Password (required) -->
             <div class="form-floating mb-3">
-              <input class="form-control" id="inputPassword" name="password" type="password"
-                placeholder="Create a password" required />
+              <input
+                class="form-control"
+                id="inputPassword"
+                name="password"
+                type="password"
+                placeholder="Create a password"
+                required
+                minlength="8"
+                maxlength="128"
+              />
               <label for="inputPassword">Password</label>
+              <small id="inputPasswordChars" class="form-text text-muted">128 characters remaining</small>
+              <div class="invalid-feedback" id="inputPasswordErr"></div>
             </div>
 
+            <!-- Confirm Password (required) -->
             <div class="form-floating mb-3">
-              <input class="form-control" id="inputPasswordConfirm" name="confirm_password" type="password"
-                placeholder="Confirm password" required />
+              <input
+                class="form-control"
+                id="inputPasswordConfirm"
+                name="confirm_password"
+                type="password"
+                placeholder="Confirm password"
+                required
+                minlength="8"
+                maxlength="128"
+              />
               <label for="inputPasswordConfirm">Confirm Password</label>
+              <small id="inputPasswordConfirmChars" class="form-text text-muted">128 characters remaining</small>
+              <div class="invalid-feedback" id="inputPasswordConfirmErr"></div>
             </div>
 
+            <!-- Terms -->
             <div class="form-check mb-3">
               <input class="form-check-input" id="inputTerms" type="checkbox" required />
               <label class="form-check-label" for="inputTerms">
-                I agree to the <a href="#!">Terms and Conditions</a>
+                I agree to the <a href="#">Terms and Conditions</a>
               </label>
+              <div class="invalid-feedback d-block" id="inputTermsErr" style="display:none;"></div>
             </div>
 
             <div class="d-flex align-items-center justify-content-center mt-4 mb-0">
-              <button class="btn btn-primary" type="submit">Create Account</button>
+              <!-- Note: button is NOT disabled; we validate in JS and show messages -->
+              <button class="btn btn-primary" type="submit" id="createAccountBtn">Create Account</button>
             </div>
           </form>
+
+          <!-- Counters, persistence, and validation (custom messages) -->
+          <script>
+          document.addEventListener('DOMContentLoaded', function() {
+            const defs = [
+              { id: 'inputFirstName', max: 50 },
+              { id: 'inputLastName', max: 100 },
+              { id: 'inputUsername', max: 30 },
+              { id: 'inputEmail', max: 254 },
+              { id: 'inputPhoneNumber', max: 20 },
+              { id: 'inputPassword', max: 128 },
+              { id: 'inputPasswordConfirm', max: 128 },
+            ];
+            const form = document.querySelector('form.auth-form');
+            const terms = document.getElementById('inputTerms');
+
+            function getEl(id){ return document.getElementById(id); }
+            function setErr(id, msg) {
+              const input = getEl(id);
+              const err = getEl(id + 'Err');
+              if (!input || !err) return;
+              if (msg) {
+                input.classList.add('is-invalid');
+                err.textContent = msg;
+                err.style.display = 'block';
+              } else {
+                input.classList.remove('is-invalid');
+                err.textContent = '';
+                err.style.display = 'none';
+              }
+            }
+            function updateChars(input, max, counter) {
+              const remaining = Math.max(0, max - input.value.length);
+              counter.textContent = remaining + ' characters remaining';
+            }
+
+            // Restore values and wire up counters + persistence
+            defs.forEach(({id, max}) => {
+              const input = getEl(id);
+              const counter = getEl(id + 'Chars');
+              if (!input) return;
+              const stored = sessionStorage.getItem(id);
+              if (stored !== null) input.value = stored;
+              if (counter) updateChars(input, max, counter);
+              input.addEventListener('input', () => {
+                sessionStorage.setItem(id, input.value);
+                if (counter) updateChars(input, max, counter);
+                // live-clear error while typing
+                setErr(id, '');
+              });
+            });
+            const termsStored = sessionStorage.getItem('inputTermsChecked');
+            if (termsStored === 'true') terms.checked = true;
+            terms.addEventListener('change', () => {
+              sessionStorage.setItem('inputTermsChecked', terms.checked);
+              getEl('inputTermsErr').style.display = 'none';
+            });
+
+            // Validate on submit and show red per-field messages instead of disabling button
+            form.addEventListener('submit', (e) => {
+              let ok = true;
+
+              const fname = getEl('inputFirstName');
+              const lname = getEl('inputLastName');
+              const username = getEl('inputUsername');
+              const email = getEl('inputEmail');
+              const phone = getEl('inputPhoneNumber');
+              const pwd1 = getEl('inputPassword');
+              const pwd2 = getEl('inputPasswordConfirm');
+              // First name checks
+              if (!fname.value) {
+                setErr('inputFirstName', 'First name is required.');
+                ok = false;
+              } else {
+                setErr('inputFirstName', '');
+              }
+
+              // Last name checks
+              if (!lname.value) {
+                setErr('inputLastName', 'Last name is required.');
+                ok = false;
+              } else {
+                setErr('inputLastName', '');
+              }
+
+              // Username checks
+              if (!username.value) { setErr('inputUsername', 'Username is required.'); ok = false; }
+              else if (username.value.length < 3) { setErr('inputUsername', 'Username must be at least 3 characters.'); ok = false; }
+              else if (!/^[a-zA-Z0-9._-]+$/.test(username.value)) { setErr('inputUsername', 'Use letters, numbers, dot, underscore, or hyphen only.'); ok = false; }
+              else { setErr('inputUsername', ''); }
+
+              // Email checks
+              if (!email.value) { setErr('inputEmail', 'Email is required.'); ok = false; }
+              else if (!/^[^@\s]+@upr\.edu$/.test(email.value)) { setErr('inputEmail', 'Please use your @upr.edu email.'); ok = false; }
+              else { setErr('inputEmail', ''); }
+
+              // Phone (optional)
+              if (phone.value && !/^\+?[0-9\s-]{10,20}$/.test(phone.value)) {
+                setErr('inputPhoneNumber', 'Enter 10–20 digits; +, spaces, and hyphens allowed. No letters.');
+                ok = false;
+              } else {
+                setErr('inputPhoneNumber', '');
+              }
+
+              // Password checks
+              if (!pwd1.value) { setErr('inputPassword', 'Password is required.'); ok = false; }
+              else if (pwd1.value.length < 8) { setErr('inputPassword', 'Password must be at least 8 characters.'); ok = false; }
+              else { setErr('inputPassword', ''); }
+
+              if (!pwd2.value) { setErr('inputPasswordConfirm', 'Please confirm your password.'); ok = false; }
+              else if (pwd1.value !== pwd2.value) { setErr('inputPasswordConfirm', 'Passwords do not match.'); ok = false; }
+              else { setErr('inputPasswordConfirm', ''); }
+
+              // Terms
+              if (!terms.checked) {
+                const tErr = getEl('inputTermsErr');
+                tErr.textContent = 'You must accept the terms and conditions.';
+                tErr.style.display = 'block';
+                ok = false;
+              }
+
+              if (!ok) {
+                e.preventDefault();
+                // Scroll to first invalid field
+                const firstInvalid = document.querySelector('.is-invalid');
+                if (firstInvalid) firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+              }
+
+              // Do not clear persisted values on submit; they will be cleared on the success page
+            });
+
+            // If the server already told us something failed (duplicates, etc.),
+            // highlight likely fields so the user sees what to fix.
+            // Check for any Bootstrap alert message (error/success) rather than only alert-danger,
+            // because server-side messages use "alert-error" for errors. This ensures we
+            // detect duplicate username/email errors returned by the backend.
+            const dangerAlert = document.querySelector('.alert');
+            if (dangerAlert) {
+              // Heuristic: mark username/email as invalid if error mentions them
+              const txt = dangerAlert.textContent.toLowerCase();
+              if (txt.includes('username')) setErr('inputUsername', 'Username already been used.');
+              if (txt.includes('email')) setErr('inputEmail', 'Email already been used.');
+            }
+          });
+          </script>
         </div>
 
         <div class="card-footer text-center py-3">

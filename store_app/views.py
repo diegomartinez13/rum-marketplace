@@ -238,7 +238,7 @@ class SignupView(View):
     def post(self, request):
         form = PreSignupForm(request.POST)
         if not form.is_valid():
-            return render(request, self.template_name, {"form": form})
+            return render(request, self.template_name, {"form": form}, status=400)
 
         cd = form.cleaned_data
         token, expires = new_email_token(hours_valid=1)
@@ -526,10 +526,21 @@ def profile(request):
     services = Service.objects.filter(user_provider=user)
     
     if request.method == "POST":
-        # Update profile fields
+        """
+        Handle profile updates. In addition to the name and phone number fields,
+        update the seller/service flags if present in the submitted form. When
+        a checkbox is unchecked it will not appear in `request.POST`, so we
+        default to False in those cases.
+        """
+        # Update the built-in User fields
         user.first_name = request.POST.get("first_name", user.first_name).strip()
         user.last_name = request.POST.get("last_name", user.last_name).strip()
+        # Update the custom profile fields
         profile.phone_number = request.POST.get("phone_number", profile.phone_number).strip()
+        # Booleans: if the checkbox name is in POST, it's True; otherwise False
+        profile.is_seller = bool(request.POST.get("is_seller"))
+        profile.provides_service = bool(request.POST.get("provides_service"))
+        # Persist changes
         user.save()
         profile.save()
         messages.success(request, "Profile updated successfully.")
@@ -547,6 +558,21 @@ def update_profile(request, user_id):
     """Update user profile information"""
     user = get_object_or_404(User, id=user_id)
     profile = user.profile  # type: ignore
+
+    if request.method == "POST":
+        # Update standard user fields
+        user.first_name = request.POST.get("first_name", user.first_name).strip()
+        user.last_name = request.POST.get("last_name", user.last_name).strip()
+        # Update custom profile fields
+        profile.phone_number = request.POST.get("phone_number", profile.phone_number).strip()
+        profile.is_seller = bool(request.POST.get("is_seller"))
+        profile.provides_service = bool(request.POST.get("provides_service"))
+        # Save changes
+        user.save()
+        profile.save()
+        messages.success(request, "Profile updated successfully.")
+        # Redirect to the main profile page for the logged-in user
+        return redirect("store_app:profile")
 
     context = {
         "user": user,

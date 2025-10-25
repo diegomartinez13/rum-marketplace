@@ -10,18 +10,41 @@
           <h3 class="text-center font-weight-light my-4">Login</h3>
         </div>
         <div class="card-body">
-          <form class="auth-form" method="POST" action="{% url 'store_app:login' %}">
+          <form class="auth-form" method="POST" action="{% url 'store_app:login' %}" autocomplete="on">
             {% csrf_token %}
+            <!-- Honeypot field to deter simple bots -->
+            <input type="hidden" name="website" tabindex="-1" autocomplete="off" style="display:none">
             <div class="form-floating mb-3">
-              <input class="form-control" id="inputEmail" name="email" type="text" placeholder="Email" required />
+              <input
+                class="form-control"
+                id="inputEmail"
+                name="email"
+                type="email"
+                inputmode="email"
+                autocomplete="username"
+                placeholder="name@upr.edu"
+                required
+                maxlength="254"
+                pattern="^[^@\s]+@[^@\s]+\.[^@\s]+$"
+              />
               <label for="inputEmail">Email</label>
             </div>
             <div class="form-floating mb-3">
-              <input class="form-control" id="inputPassword" name="password" type="password" placeholder="Password" required />
+              <input
+                class="form-control"
+                id="inputPassword"
+                name="password"
+                type="password"
+                autocomplete="current-password"
+                placeholder="Password"
+                required
+                minlength="8"
+                maxlength="128"
+              />
               <label for="inputPassword">Password</label>
             </div>
             <div class="form-check mb-3">
-              <input class="form-check-input" name="remember_me" id="remember_me" type="checkbox"/>
+              <input class="form-check-input" name="remember_me" id="remember_me" type="checkbox" />
               <label class="form-check-label" for="remember_me">Remember Me</label>
             </div>
             <div class="d-flex align-items-center justify-content-between mt-4 mb-0">
@@ -43,4 +66,45 @@
     </div>
   </div>
 </div>
+<script>
+  // Persist login form values across refreshes using sessionStorage.  We
+  // deliberately use sessionStorage rather than localStorage to avoid
+  // storing credentials long term.  Passwords are kept only until the
+  // tab is closed.
+  document.addEventListener('DOMContentLoaded', function () {
+    const emailInput = document.getElementById('inputEmail');
+    const pwdInput = document.getElementById('inputPassword');
+    // restore previous values
+    const storedEmail = sessionStorage.getItem('loginEmail');
+    const storedPwd = sessionStorage.getItem('loginPassword');
+    if (storedEmail) {
+      emailInput.value = storedEmail;
+    }
+    if (storedPwd) {
+      pwdInput.value = storedPwd;
+    }
+    // store updates
+    emailInput.addEventListener('input', () => {
+      sessionStorage.setItem('loginEmail', emailInput.value);
+    });
+    pwdInput.addEventListener('input', () => {
+      sessionStorage.setItem('loginPassword', pwdInput.value);
+    });
+    // clear stored credentials on form submission to avoid persisting them after successful login
+    const form = document.querySelector('form.auth-form');
+    form.addEventListener('submit', () => {
+      sessionStorage.removeItem('loginEmail');
+      sessionStorage.removeItem('loginPassword');
+    });
+    // Highlight the inputs in red if the server returned an error message
+    // (Django messages with the "danger" tag).  This provides a visual cue
+    // that either the email or password is incorrect.  We rely on the
+    // Bootstrap "is-invalid" class to style the inputs.
+    const dangerAlert = document.querySelector('.alert-danger');
+    if (dangerAlert) {
+      emailInput.classList.add('is-invalid');
+      pwdInput.classList.add('is-invalid');
+    }
+  });
+</script>
 {% endblock %}
