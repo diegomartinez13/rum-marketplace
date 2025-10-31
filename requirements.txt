@@ -6,3 +6,4 @@ sqlparse==0.5.3
 pillow==11.3.0
 gunicorn
 django-anymail
+python-dotenv
