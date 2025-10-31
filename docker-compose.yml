@@ -10,16 +10,13 @@ services:
       - 8000:8000
     depends_on:
       - db
+    env_file:
+      - .env
     environment:
-      #- EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
-      #- EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
-      - SENDGRID_API_KEY=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
-      - EMAIL_HOST=smtp.gmail.com
-      - EMAIL_PORT=587
-      - EMAIL_USE_TLS=true
-      - EMAIL_HOST_USER=rummarketplace@gmail.com
-      - EMAIL_HOST_PASSWORD=zbayknrczsoyfqmz
-      - DEFAULT_FROM_EMAIL=rummarketplace@gmail.com
+      - EMAIL_HOST_USER=${EMAIL_HOST_USER}
+      - EMAIL_HOST_PASSWORD=${EMAIL_HOST_PASSWORD}
+      - SENDGRID_API_KEY=${SENDGRID_API_KEY}
+      - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
   db:
     image: postgres:14
     volumes:
