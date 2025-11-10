@@ -35,14 +35,22 @@ logger = logging.getLogger(__name__)
 
 
 def home(request):
+    newest_products = get_newest_products(request).get('products', [])
+    newest_services = get_newest_services(request).get('services', [])
+    
     products = Product.objects.all()
     services = Service.objects.all()
-    categories = ProductCategory.objects.all()
+    
+    products_categories = ProductCategory.objects.all()
+    services_categories = ServiceCategory.objects.all()
     user = request.user
 
     context = {
+        "newest_products": newest_products,
+        "newest_services": newest_services,
         "products": products,
-        "categories": categories,
+        "products_categories": products_categories,
+        "services_categories": services_categories,
         "user": user,
         "services": services,
     }
@@ -597,3 +605,13 @@ def all_services(request):
         "user": request.user,
     }
     return render(request, "all_services.html", context)
+
+def get_newest_products(request):
+    """Return the 5 newest products as JSON (for AJAX calls)"""
+    newest_products = Product.objects.order_by('-id')[:5]
+    return {'products': newest_products}
+
+def get_newest_services(request):
+    """Return the 5 newest services as JSON (for AJAX calls)"""
+    newest_services = Service.objects.order_by('-id')[:5]
+    return {'services': newest_services}

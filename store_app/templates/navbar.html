@@ -1,15 +1,15 @@
 {% load static %}
-<style>
+<!-- <style>
   /* Fix dropdown overflow issues */
   .dropdown-menu {
     max-height: none !important;
     overflow: visible !important;
   }
 
-  .navbar {
+  /* .navbar {
     position: relative;
     z-index: 1000;
-  }
+  } */
 
   .dropdown {
     position: static;
@@ -17,9 +17,8 @@
 
   .dropdown-menu {
     position: absolute;
-    top: 100%;
-    left: auto;
-    right: 0;
+    left: 10px;
+    right: auto;
     z-index: 1001;
   }
 
@@ -27,10 +26,10 @@
   .navbar-collapse {
     overflow: visible !important;
   }
-</style>
+</style> -->
 <!-- Navbar -->
-<nav class="navbar navbar-expand-lg bg-success navbar-dark">
-  <div class="container-fluid px-0 px-lg-0">
+<nav class="navbar navbar-expand-lg bg-success navbar-dark swadow-sm sticky-top">
+  <div class="container-fluid">
     <!-- Brand Logo -->
     <a class="navbar-brand d-flex align-items-center" href="{% url 'store_app:home' %}">
       <img src="{% static 'assets/logo.jpeg' %}" alt="RUM Marketplace Logo" width="50" height="50">
@@ -45,10 +44,10 @@
     <div class="collapse navbar-collapse" id="navbarSupportedContent">
       <ul class="navbar-nav me-auto mb-2 mb-lg-0">
         <li class="nav-item">
-          <a class="nav-link active" aria-current="page" href="{% url 'store_app:home' %}">HOME</a>
+          <a class="nav-link active fs-5" aria-current="page" href="{% url 'store_app:home' %}">HOME</a>
         </li>
         <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+          <a class="nav-link dropdown-toggle fs-5" role="button" data-bs-toggle="dropdown" aria-expanded="false">
             CATEGORIES
           </a>
           <ul class="dropdown-menu">
