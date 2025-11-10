@@ -26,13 +26,13 @@
 <!-- Product Display -->
 {% if products%}
 <div class="container mt-4">
-  <h2 class="mb-4">Available Products</h2>
+  <h2 class="mb-4">New Products</h2>
   <div class="row">
-    {% for product in products %}
+    {% for product in newest_products %}
     <div class="col-md-4 mb-4">
-      <div class="card">
-        <img src="/media/{{ product.image }}" class="card-img-top" alt="{{ product.name }}" height="250px"
-          style="object-fit: scale-down;">
+      <div class="card shadow-sm">
+        <img src="/media/{{ product.image }}" class="card-img-top bg-light border rounded" alt="{{ product.name }}" height="250px"
+          style="object-fit: scale-down; object-position: center;">
         <div class="card-body">
           <h5 class="card-title">{{ product.name }}</h5>
           {% if user.is_authenticated %}
@@ -59,6 +59,13 @@
       </div>
     </div>
     {% endfor %}
+    {% if products|length > 5 %}
+    <div class="col-md-4 mb-4">
+      <div class="d-flex justify-content-center mt-4 align-items-center h-100">
+        <a href="{% url 'store_app:all_products' %}" class="btn btn-lg btn-outline-success">View All Products</a>
+      </div>
+    </div>
+    {% endif %}
   </div>
 </div>
 {% endif %}
@@ -66,9 +73,9 @@
 <!-- Service Display -->
 {% if services %}
 <div class="container mt-4">
-  <h2 class="mb-4">Available Services</h2>
+  <h2 class="mb-4">New Services</h2>
   <div class="row">
-    {% for service in services %}
+    {% for service in newest_services %}
     <div class="col-md-4 mb-4">
       <div class="card">
         <div class="card-body">
@@ -79,8 +86,7 @@
           <p class="card-text">
             <strong>Price:</strong>
             <span class="text-decoration-line-through text-muted">${{ service.price }}</span>
-            <span class="text-danger ms-2">${{ service.price|floatformat:2|add:"-"|add:service.discount|floatformat:2
-              }}</span>
+            <span class="text-danger ms-2">${{ service.final_price}}</span>
           </p>
           {% else %}
           <p class="card-text"><strong>Price:</strong> ${{ service.price }}</p>
@@ -98,6 +104,13 @@
       </div>
     </div>
     {% endfor %}
+    {% if services|length > 5 %}
+    <div class="col-md-4 mb-4">
+      <div class="d-flex justify-content-center mt-4 align-items-center h-100">
+        <a href="{% url 'store_app:all_services' %}" class="btn btn-lg btn-outline-success">View All Services</a>
+      </div>
+    </div>
+    {% endif %}
   </div>
 </div>
 {% endif %}
