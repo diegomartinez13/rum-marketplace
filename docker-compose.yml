@@ -5,9 +5,11 @@ services:
     command: python /code/manage.py runserver 0.0.0.0:8000
     volumes:
       - .:/code
-      - ./staticfiles:/code/staticfiles
+      - /var/www/rummarketplace/static:/static
+      - /var/www/rummarketplace/media:/media
+    restart: always
     ports:
-      - 8000:8000
+      - "127.0.0.1:8000:8000"
     depends_on:
       - db
     env_file:
@@ -17,6 +19,8 @@ services:
       - EMAIL_HOST_PASSWORD=${EMAIL_HOST_PASSWORD}
       - SENDGRID_API_KEY=${SENDGRID_API_KEY}
       - DEFAULT_FROM_EMAIL=${DEFAULT_FROM_EMAIL}
+      - DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
+      - DJANGO_DEBUG=${DJANGO_DEBUG}
   db:
     image: postgres:14
     volumes:
