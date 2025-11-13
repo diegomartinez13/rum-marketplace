@@ -526,6 +526,7 @@ def start_conversation_from_listing(request, listing_type, listing_id):
     return redirect('store_app:conversation', conversation_id=conversation.id)
 
 
+@login_required
 def profile(request):
     """Display and edit user profile"""
     user = request.user
