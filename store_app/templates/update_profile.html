@@ -3,6 +3,9 @@
 {% load static %}
 
 {% block content %}
+<!-- Cropper.js CSS -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
+
 <div class="container-fluid mt-5">
   <div class="row justify-content-center">
     <div class="col-md-5">
@@ -11,8 +14,62 @@
           <h3 class="card-title mb-0">Edit Profile</h3>
         </div>
         <div class="card-body">
-          <form method="POST" action="{% url 'store_app:profile' %}">
+          <form method="POST" action="{% url 'store_app:profile' %}" enctype="multipart/form-data" id="profile-form">
             {% csrf_token %}
+            <div class="mb-3 text-center">
+              <label for="profile_picture" class="form-label">Profile Picture</label>
+              <div class="mb-2">
+                {% if profile.profile_picture %}
+                <img src="/media/{{ profile.profile_picture }}" id="current-profile-img" class="rounded-circle mb-2"
+                  alt="Current Profile Picture" width="150" height="150" style="object-fit: cover;">
+                {% else %}
+                <img
+                  src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMTAgMTAwYzAtMTAtMTAtMTAtMTAtMTAiIGZpbGw9IiM2Yzc1N2QiLz48L3N2Zz4="
+                  id="current-profile-img" class="rounded-circle mb-2" alt="Default Profile" width="150" height="150"
+                  style="object-fit: cover; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                {% endif %}
+              </div>
+              
+              {% if profile.profile_picture %}
+              <!-- Buttons when profile picture exists -->
+              <div class="d-flex gap-2 justify-content-center">
+                <button type="button" class="btn btn-primary" onclick="document.getElementById('profile_picture').click()">
+                  <i class="bi bi-pencil-square me-1"></i>Change Profile Picture
+                </button>
+                <button type="button" class="btn btn-danger" onclick="deleteProfilePicture()">
+                  <i class="bi bi-trash me-1"></i>Delete Profile Picture
+                </button>
+              </div>
+              <input type="file" class="form-control" id="profile_picture" name="profile_picture" accept="image/*" style="display: none;">
+              {% else %}
+              <!-- File input when no profile picture -->
+              <input type="file" class="form-control" id="profile_picture" name="profile_picture" accept="image/*">
+              {% endif %}
+              
+              <input type="hidden" id="delete_picture" name="delete_picture" value="false">
+            </div>
+
+            <!-- Cropper Modal -->
+            <div class="modal fade" id="cropperModal" tabindex="-1" aria-hidden="true">
+              <div class="modal-dialog modal-dialog-centered modal-lg">
+                <div class="modal-content">
+                  <div class="modal-header">
+                    <h5 class="modal-title">Crop Profile Picture</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                  </div>
+                  <div class="modal-body">
+                    <img id="cropper-image" class="img-fluid">
+                  </div>
+                  <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="crop-btn">Crop & Save</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Hidden input for cropped image data -->
+            <input type="hidden" id="cropped-image-data" name="cropped_image_data">
             <div class="mb-3">
               <label for="first_name" class="form-label">First Name</label>
               <input type="text" class="form-control" id="first_name" name="first_name" value="{{ user.first_name }}">
@@ -31,13 +88,23 @@
                 value="{{ profile.phone_number }}">
             </div>
             <div class="mb-3">
+              <label for="description" class="form-label">Description</label>
+              <textarea class="form-control" id="description" name="description" rows="3" 
+                placeholder="Tell us about yourself (max 200 characters)" maxlength="200">{{ profile.description }}</textarea>
+              <div class="form-text">
+                <span id="char-count">0</span>/200 characters
+              </div>
+            </div>
+            <div class="mb-3">
               <label class="form-label">User Type</label><br>
               <div class="form-check form-check-inline">
-                <input class="form-check-input" type="checkbox" id="is_seller" name="is_seller" {% if profile.is_seller %} checked {% endif %}>
+                <input class="form-check-input" type="checkbox" id="is_seller" name="is_seller" 
+                {% if profile.is_seller%} checked {% endif %}>
                 <label class="form-check-label" for="is_seller">Seller</label>
               </div>
               <div class="form-check form-check-inline">
-                <input class="form-check-input" type="checkbox" id="provides_service" name="provides_service" {% if profile.provides_service %} checked {% endif %}>
+                <input class="form-check-input" type="checkbox" id="provides_service" name="provides_service" 
+                {% if profile.provides_service %} checked {% endif %}>
                 <label class="form-check-label" for="provides_service">Service Provider</label>
               </div>
             </div>
@@ -53,4 +120,118 @@
     </div>
   </div>
 </div>
+
+<!-- Cropper.js JS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+
+<script>
+  // Function to delete profile picture
+  function deleteProfilePicture() {
+    if (confirm('Are you sure you want to delete your profile picture?')) {
+      const deleteFlag = document.getElementById('delete_picture');
+      const profileImg = document.getElementById('current-profile-img');
+      const defaultImgSrc = profileImg.getAttribute('src').includes('default-profile') 
+        ? profileImg.src 
+        : 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTUwIiBoZWlnaHQ9IjE1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMTAgMTAwYzAtMTAtMTAtMTAtMTAtMTAiIGZpbGw9IiM2Yzc1N2QiLz48L3N2Zz4=';
+      
+      deleteFlag.value = 'true';
+      profileImg.src = defaultImgSrc;
+      profileImg.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    const imageInput = document.getElementById('profile_picture');
+    const cropperModal = new bootstrap.Modal(document.getElementById('cropperModal'));
+    const cropperImage = document.getElementById('cropper-image');
+    const cropBtn = document.getElementById('crop-btn');
+    const profileImg = document.getElementById('current-profile-img');
+    const croppedImageData = document.getElementById('cropped-image-data');
+    let cropper;
+
+    imageInput.addEventListener('change', function (e) {
+      const file = e.target.files[0];
+      if (file) {
+        // Reset delete flag when uploading a new image
+        document.getElementById('delete_picture').value = 'false';
+        
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          cropperImage.src = e.target.result;
+          cropperModal.show();
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    // Initialize cropper when modal is shown
+    document.getElementById('cropperModal').addEventListener('shown.bs.modal', function () {
+      cropper = new Cropper(cropperImage, {
+        aspectRatio: 1, // Square aspect ratio for circular images
+        viewMode: 1,
+        dragMode: 'move',
+        cropBoxMovable: false,
+        cropBoxResizable: false,
+        toggleDragModeOnDblclick: false,
+      });
+    });
+
+    // Destroy cropper when modal is hidden
+    document.getElementById('cropperModal').addEventListener('hidden.bs.modal', function () {
+      if (cropper) {
+        cropper.destroy();
+      }
+    });
+
+    cropBtn.addEventListener('click', function () {
+      if (cropper) {
+        // Get cropped canvas
+        const canvas = cropper.getCroppedCanvas({
+          width: 300,
+          height: 300,
+          imageSmoothingQuality: 'high'
+        });
+
+        // Convert to blob
+        canvas.toBlob(function (blob) {
+          const reader = new FileReader();
+          reader.onload = function (e) {
+            profileImg.src = e.target.result;
+            croppedImageData.value = e.target.result;
+          };
+          reader.readAsDataURL(blob);
+        });
+
+        // Close modal
+        cropperModal.hide();
+      }
+    });
+    
+    // Character count for description
+    const descriptionTextarea = document.getElementById('description');
+    const charCount = document.getElementById('char-count');
+    
+    if (descriptionTextarea && charCount) {
+      function updateCharCount() {
+        const length = descriptionTextarea.value.length;
+        charCount.textContent = length;
+        
+        if (length >= 190) {
+          charCount.style.color = '#dc3545'; // red
+        } else if (length >= 150) {
+          charCount.style.color = '#ffc107'; // yellow
+        } else {
+          charCount.style.color = '';
+        }
+      }
+      
+      // Initialize on page load
+      updateCharCount();
+      
+      // Update on input
+      descriptionTextarea.addEventListener('input', updateCharCount);
+    }
+  });
+</script>
+
 {% endblock %}

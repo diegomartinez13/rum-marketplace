@@ -16,6 +16,8 @@ class UserProfile(models.Model):
     phone_number = models.CharField(max_length=20, blank=True)
     is_seller = models.BooleanField(default=False)
     provides_service = models.BooleanField(default=False)
+    profile_picture = models.ImageField(upload_to="uploads/profile_pictures/", blank=True, null=True)
+    description = models.TextField(max_length=200, blank=True, null=True)
 
     # Email verification (for your app, separate from Django auth)
     pending_email_verification = models.BooleanField(default=True)

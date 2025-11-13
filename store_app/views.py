@@ -546,9 +546,34 @@ def profile(request):
         user.last_name = request.POST.get("last_name", user.last_name).strip()
         # Update the custom profile fields
         profile.phone_number = request.POST.get("phone_number", profile.phone_number).strip()
+        profile.description = request.POST.get("description", profile.description).strip()
         # Booleans: if the checkbox name is in POST, it's True; otherwise False
         profile.is_seller = bool(request.POST.get("is_seller"))
         profile.provides_service = bool(request.POST.get("provides_service"))
+        
+        # Handle profile picture deletion
+        if request.POST.get('delete_picture') == 'true':
+            profile.profile_picture.delete(save=False)
+            profile.profile_picture = None
+        
+        # Handle profile picture upload
+        if 'profile_picture' in request.FILES:
+            profile.profile_picture = request.FILES['profile_picture']
+        
+        # Handle cropped image data (from cropper modal)
+        if 'cropped_image_data' in request.POST and request.POST['cropped_image_data']:
+            import base64
+            from django.core.files.base import ContentFile
+            data = request.POST['cropped_image_data']
+            if data.startswith('data:image'):
+                # Extract base64 data
+                format, imgstr = data.split(';base64,')
+                ext = format.split('/')[-1]
+                decoded_data = base64.b64decode(imgstr)
+                # Create file from decoded data
+                filename = f"profile_pic_{user.id}.{ext}"
+                profile.profile_picture = ContentFile(decoded_data, filename)
+        
         # Persist changes
         user.save()
         profile.save()
@@ -574,8 +599,33 @@ def update_profile(request, user_id):
         user.last_name = request.POST.get("last_name", user.last_name).strip()
         # Update custom profile fields
         profile.phone_number = request.POST.get("phone_number", profile.phone_number).strip()
+        profile.description = request.POST.get("description", profile.description).strip()
         profile.is_seller = bool(request.POST.get("is_seller"))
         profile.provides_service = bool(request.POST.get("provides_service"))
+        
+        # Handle profile picture deletion
+        if request.POST.get('delete_picture') == 'true':
+            profile.profile_picture.delete(save=False)
+            profile.profile_picture = None
+        
+        # Handle profile picture upload
+        if 'profile_picture' in request.FILES:
+            profile.profile_picture = request.FILES['profile_picture']
+        
+        # Handle cropped image data (from cropper modal)
+        if 'cropped_image_data' in request.POST and request.POST['cropped_image_data']:
+            import base64
+            from django.core.files.base import ContentFile
+            data = request.POST['cropped_image_data']
+            if data.startswith('data:image'):
+                # Extract base64 data
+                format, imgstr = data.split(';base64,')
+                ext = format.split('/')[-1]
+                decoded_data = base64.b64decode(imgstr)
+                # Create file from decoded data
+                filename = f"profile_pic_{user.id}.{ext}"
+                profile.profile_picture = ContentFile(decoded_data, filename)
+        
         # Save changes
         user.save()
         profile.save()
