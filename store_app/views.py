@@ -435,6 +435,7 @@ def conversation_view(request, conversation_id):
                 return JsonResponse({
                     'success': True,
                     'message': {
+                        'id': message.id,
                         'sender': message.sender.username,
                         'sender_name': message.sender.get_full_name() or message.sender.username,
                         'content': message.content,
@@ -467,6 +468,45 @@ def conversation_view(request, conversation_id):
         'other_participant': other_participant,
     }
     return render(request, "conversation.html", context)
+
+
+@login_required
+def get_new_messages(request, conversation_id):
+    """API endpoint to fetch new messages for a conversation"""
+    conversation = get_object_or_404(Conversation, id=conversation_id, participants=request.user)
+    
+    # Get the last message ID from the request (if provided)
+    last_message_id = request.GET.get('last_message_id', None)
+    
+    # Query for new messages
+    if last_message_id:
+        try:
+            last_message_id = int(last_message_id)
+            new_messages = conversation.messages.filter(id__gt=last_message_id).exclude(sender=request.user)
+        except ValueError:
+            new_messages = conversation.messages.exclude(sender=request.user)
+    else:
+        # If no last_message_id provided, get all messages (for initial load)
+        new_messages = conversation.messages.exclude(sender=request.user)
+    
+    # Mark new messages as read
+    new_messages.update(is_read=True, read_at=timezone.now())
+    
+    # Serialize messages
+    messages_data = []
+    for message in new_messages:
+        messages_data.append({
+            'id': message.id,
+            'sender': message.sender.username,
+            'sender_name': message.sender.get_full_name() or message.sender.username,
+            'content': message.content,
+            'timestamp': message.created_at.strftime('%b %d, %Y %I:%M %p')
+        })
+    
+    return JsonResponse({
+        'success': True,
+        'messages': messages_data
+    })
 
 
 @login_required

@@ -42,7 +42,8 @@
           {% if messages %}
           {% for message in messages %}
           <div
-            class="d-flex mb-3 {% if message.sender == request.user %}justify-content-end{% else %}justify-content-start{% endif %}">
+            class="d-flex mb-3 {% if message.sender == request.user %}justify-content-end{% else %}justify-content-start{% endif %}"
+            data-message-id="{{ message.id }}">
             <div
               class="{% if message.sender == request.user %}bg-primary text-white{% else %}bg-light text-dark{% endif %} rounded p-3"
               style="max-width: 70%; word-wrap: break-word; overflow-wrap: break-word;">
@@ -144,6 +145,9 @@
 
     const messageDiv = document.createElement('div');
     messageDiv.className = `d-flex mb-3 ${isCurrentUser ? 'justify-content-end' : 'justify-content-start'}`;
+    if (messageData.id) {
+      messageDiv.setAttribute('data-message-id', messageData.id);
+    }
 
     const messageBubble = document.createElement('div');
     messageBubble.className = `${isCurrentUser ? 'bg-primary text-white' : 'bg-light text-dark'} rounded p-3`;
@@ -188,11 +192,68 @@
     }, 50);
   }
 
+  // Get the last message ID from the DOM
+  function getLastMessageId() {
+    const messagesContainer = document.getElementById('messagesContainer');
+    const messageDivs = messagesContainer.querySelectorAll('[data-message-id]');
+    if (messageDivs.length === 0) return null;
+    
+    let lastId = 0;
+    messageDivs.forEach(div => {
+      const id = parseInt(div.getAttribute('data-message-id'));
+      if (id > lastId) lastId = id;
+    });
+    return lastId;
+  }
+
+  // Poll for new messages
+  function pollForNewMessages() {
+    const conversationId = {{ conversation.id }};
+    const lastMessageId = getLastMessageId();
+    
+    let url = `{% url 'store_app:get_new_messages' conversation.id %}`;
+    if (lastMessageId) {
+      url += `?last_message_id=${lastMessageId}`;
+    }
+
+    fetch(url, {
+      method: 'GET',
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success && data.messages && data.messages.length > 0) {
+          // Check if user is near bottom of scroll (within 100px)
+          const messagesContainer = document.getElementById('messagesContainer');
+          const isNearBottom = messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight < 100;
+          
+          // Add new messages
+          data.messages.forEach(message => {
+            addMessageToConversation(message);
+          });
+          
+          // Auto-scroll if user was near bottom
+          if (isNearBottom) {
+            setTimeout(() => {
+              messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }, 50);
+          }
+        }
+      })
+      .catch(error => {
+        console.error('Error polling for new messages:', error);
+      });
+  }
+
   // Handle form submission with AJAX
   document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('messageForm');
     const messageInput = document.getElementById('messageContent');
     const scrollToBottomBtn = document.getElementById('scrollToBottomBtn');
+    let pollingInterval = null;
+    let isPageVisible = true;
 
     // Scroll to bottom on page load
     scrollToBottom();
@@ -212,6 +273,42 @@
         }
       });
     }
+
+    // Page Visibility API - only poll when page is visible
+    document.addEventListener('visibilitychange', function() {
+      isPageVisible = !document.hidden;
+      if (isPageVisible && pollingInterval === null) {
+        // Restart polling if page becomes visible
+        startPolling();
+      } else if (!isPageVisible && pollingInterval !== null) {
+        // Stop polling when page is hidden
+        stopPolling();
+      }
+    });
+
+    // Start polling function
+    function startPolling() {
+      if (pollingInterval === null) {
+        // Poll every 3 seconds
+        pollingInterval = setInterval(pollForNewMessages, 3000);
+      }
+    }
+
+    // Stop polling function
+    function stopPolling() {
+      if (pollingInterval !== null) {
+        clearInterval(pollingInterval);
+        pollingInterval = null;
+      }
+    }
+
+    // Start polling when page loads (if visible)
+    if (isPageVisible) {
+      startPolling();
+    }
+
+    // Stop polling when user navigates away
+    window.addEventListener('beforeunload', stopPolling);
 
     form.addEventListener('submit', function (e) {
       e.preventDefault(); // Prevent default form submission
