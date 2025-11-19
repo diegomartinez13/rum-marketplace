@@ -14,9 +14,9 @@
       </div>
 
       {% if conversations %}
-      <div class="row">
+      <div class="row" id="conversationsContainer">
         {% for conv_data in conversations %}
-        <div class="col-12 mb-3">
+        <div class="col-12 mb-3" data-conversation-id="{{ conv_data.conversation.id }}">
           <div class="card h-100 shadow-sm">
             <div class="card-body">
               <div class="row align-items-center">
@@ -30,19 +30,21 @@
                     </div>
                     <div>
                       <h5 class="card-title mb-1">
-                        {{ conv_data.other_participant.get_full_name|default:conv_data.other_participant.username }}
-                        {% if conv_data.unread_count > 0 %}
-                        <span class="badge bg-danger ms-2">{{ conv_data.unread_count }}</span>
-                        {% endif %}
+                        <span class="participant-name">{{ conv_data.other_participant.get_full_name|default:conv_data.other_participant.username }}</span>
+                        <span class="unread-badge-container">
+                          {% if conv_data.unread_count > 0 %}
+                          <span class="badge bg-danger ms-2 unread-count">{{ conv_data.unread_count }}</span>
+                          {% endif %}
+                        </span>
                       </h5>
-                      <p class="card-text text-muted mb-1">
+                      <p class="card-text text-muted mb-1 latest-message">
                         {% if conv_data.latest_message %}
                         {{ conv_data.latest_message.content|truncatechars:100 }}
                         {% else %}
                         <em>No messages yet</em>
                         {% endif %}
                       </p>
-                      <small class="text-muted">
+                      <small class="text-muted message-timestamp">
                         {% if conv_data.latest_message %}
                         {{ conv_data.latest_message.created_at|timesince }} ago
                         {% else %}
@@ -60,13 +62,13 @@
               </div>
 
               {% if conv_data.conversation.product or conv_data.conversation.service %}
-              <div class="mt-3 pt-3 border-top">
+              <div class="mt-3 pt-3 border-top listing-info">
                 <small class="text-muted">
                   <i class="bi bi-tag me-1"></i>
                   {% if conv_data.conversation.product %}
-                  About: <strong>{{ conv_data.conversation.product.name }}</strong>
+                  About: <strong class="listing-name">{{ conv_data.conversation.product.name }}</strong>
                   {% elif conv_data.conversation.service %}
-                  About: <strong>{{ conv_data.conversation.service.name }}</strong>
+                  About: <strong class="listing-name">{{ conv_data.conversation.service.name }}</strong>
                   {% endif %}
                 </small>
               </div>
@@ -122,4 +124,178 @@
     }
   }
 </style>
+
+<script>
+  // Function to update a conversation card with new data
+  function updateConversationCard(convData) {
+    const cardElement = document.querySelector(`[data-conversation-id="${convData.id}"]`);
+    if (!cardElement) return;
+    
+    // Update participant name
+    const nameElement = cardElement.querySelector('.participant-name');
+    if (nameElement) {
+      nameElement.textContent = convData.other_participant_name || convData.other_participant_username;
+    }
+    
+    // Update unread count
+    const unreadContainer = cardElement.querySelector('.unread-badge-container');
+    if (unreadContainer) {
+      if (convData.unread_count > 0) {
+        let badge = unreadContainer.querySelector('.unread-count');
+        if (!badge) {
+          badge = document.createElement('span');
+          badge.className = 'badge bg-danger ms-2 unread-count';
+          unreadContainer.appendChild(badge);
+        }
+        badge.textContent = convData.unread_count;
+      } else {
+        const badge = unreadContainer.querySelector('.unread-count');
+        if (badge) {
+          badge.remove();
+        }
+      }
+    }
+    
+    // Update latest message
+    const messageElement = cardElement.querySelector('.latest-message');
+    if (messageElement && convData.latest_message && convData.latest_message.content) {
+      const truncated = convData.latest_message.content.length > 100 
+        ? convData.latest_message.content.substring(0, 100) + '...'
+        : convData.latest_message.content;
+      messageElement.textContent = truncated;
+    } else if (messageElement && (!convData.latest_message || !convData.latest_message.content)) {
+      messageElement.innerHTML = '<em>No messages yet</em>';
+    }
+    
+    // Update timestamp
+    const timestampElement = cardElement.querySelector('.message-timestamp');
+    if (timestampElement) {
+      if (convData.latest_message && convData.latest_message.timesince) {
+        // timesince returns format like "2 minutes", so add "ago"
+        timestampElement.textContent = convData.latest_message.timesince + ' ago';
+      } else if (convData.conversation_timesince) {
+        // Use conversation creation time if no messages
+        timestampElement.textContent = convData.conversation_timesince + ' ago';
+      }
+    }
+    
+    // Update listing info if present
+    if (convData.has_product || convData.has_service) {
+      let listingInfo = cardElement.querySelector('.listing-info');
+      if (!listingInfo) {
+        // Create listing info div if it doesn't exist
+        const cardBody = cardElement.querySelector('.card-body');
+        listingInfo = document.createElement('div');
+        listingInfo.className = 'mt-3 pt-3 border-top listing-info';
+        listingInfo.innerHTML = '<small class="text-muted"><i class="bi bi-tag me-1"></i>About: <strong class="listing-name"></strong></small>';
+        cardBody.appendChild(listingInfo);
+      }
+      const listingName = listingInfo.querySelector('.listing-name');
+      if (listingName) {
+        listingName.textContent = convData.product_name || convData.service_name;
+      }
+    }
+  }
+  
+  // Function to fetch and update all conversations
+  function updateConversations() {
+    fetch('{% url "store_app:get_conversations_update" %}', {
+      method: 'GET',
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success && data.conversations) {
+          // Update each conversation card
+          data.conversations.forEach(convData => {
+            updateConversationCard(convData);
+          });
+          
+          // Also reorder conversations by updated_at (most recent first)
+          const container = document.getElementById('conversationsContainer');
+          if (container) {
+            const cards = Array.from(container.children);
+            cards.sort((a, b) => {
+              const aId = parseInt(a.getAttribute('data-conversation-id'));
+              const bId = parseInt(b.getAttribute('data-conversation-id'));
+              const aData = data.conversations.find(c => c.id === aId);
+              const bData = data.conversations.find(c => c.id === bId);
+              
+              if (!aData || !bData) return 0;
+              return new Date(bData.updated_at) - new Date(aData.updated_at);
+            });
+            
+            // Re-append in sorted order
+            cards.forEach(card => container.appendChild(card));
+          }
+        }
+      })
+      .catch(error => {
+        console.error('Error updating conversations:', error);
+      });
+  }
+  
+  // Listen for storage events (from other tabs/windows)
+  window.addEventListener('storage', function(e) {
+    if (e.key === 'conversation_updated') {
+      // Update conversations when a message is sent in another tab
+      updateConversations();
+    }
+  });
+  
+  // Also listen for same-tab updates (using custom event)
+  window.addEventListener('conversationUpdated', function() {
+    updateConversations();
+  });
+  
+  // Poll for updates periodically (every 5 seconds)
+  let pollingInterval = null;
+  let isPageVisible = true;
+  
+  function startPolling() {
+    if (pollingInterval === null && isPageVisible) {
+      pollingInterval = setInterval(updateConversations, 5000);
+    }
+  }
+  
+  function stopPolling() {
+    if (pollingInterval !== null) {
+      clearInterval(pollingInterval);
+      pollingInterval = null;
+    }
+  }
+  
+  // Page visibility API
+  document.addEventListener('visibilitychange', function() {
+    isPageVisible = !document.hidden;
+    if (isPageVisible) {
+      startPolling();
+      // Also update immediately when page becomes visible
+      updateConversations();
+    } else {
+      stopPolling();
+    }
+  });
+  
+  // Start polling when page loads
+  document.addEventListener('DOMContentLoaded', function() {
+    startPolling();
+    
+    // Also check localStorage immediately for recent updates
+    const lastUpdate = localStorage.getItem('conversation_updated');
+    if (lastUpdate) {
+      const updateTime = parseInt(lastUpdate);
+      const now = Date.now();
+      // If update was within last 10 seconds, refresh immediately
+      if (now - updateTime < 10000) {
+        updateConversations();
+      }
+    }
+  });
+  
+  // Stop polling when page unloads
+  window.addEventListener('beforeunload', stopPolling);
+</script>
 {% endblock %}
