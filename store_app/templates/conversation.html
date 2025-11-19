@@ -335,6 +335,17 @@
             addMessageToConversation(data.message);
             // Clear input
             messageInput.value = '';
+            
+            // Signal that conversations need to be updated in messages list
+            // This will trigger an update if messages.html is open in another tab/window
+            localStorage.setItem('conversation_updated', Date.now().toString());
+            localStorage.setItem('updated_conversation_id', {{ conversation.id }});
+            
+            // Dispatch custom event for same-tab updates
+            window.dispatchEvent(new Event('conversationUpdated'));
+            
+            // Also dispatch a storage event for cross-tab updates
+            window.dispatchEvent(new Event('storage'));
           } else {
             alert('Error sending message: ' + data.error);
           }

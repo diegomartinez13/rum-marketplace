@@ -15,6 +15,7 @@ import logging
 from django.http import JsonResponse
 from datetime import timedelta
 from django.utils import timezone
+from django.utils.timesince import timesince
 from django.core.mail import send_mail
 import secrets  # only if you still want a fallback; see note below
 
@@ -506,6 +507,46 @@ def get_new_messages(request, conversation_id):
     return JsonResponse({
         'success': True,
         'messages': messages_data
+    })
+
+
+@login_required
+def get_conversations_update(request):
+    """API endpoint to fetch updated conversation data for the messages list"""
+    conversations = Conversation.objects.filter(participants=request.user).prefetch_related('participants', 'messages')
+    
+    conversations_data = []
+    for conv in conversations:
+        other_participant = conv.get_other_participant(request.user)
+        latest_message = conv.get_latest_message()
+        unread_count = conv.messages.filter(is_read=False).exclude(sender=request.user).count()
+        
+        latest_message_timesince = None
+        conversation_timesince = timesince(conv.created_at, timezone.now())
+        if latest_message:
+            latest_message_timesince = timesince(latest_message.created_at, timezone.now())
+        
+        conversations_data.append({
+            'id': conv.id,
+            'other_participant_name': other_participant.get_full_name() if other_participant else 'Unknown',
+            'other_participant_username': other_participant.username if other_participant else 'unknown',
+            'latest_message': {
+                'content': latest_message.content if latest_message else None,
+                'timestamp': latest_message.created_at.strftime('%b %d, %Y %I:%M %p') if latest_message else None,
+                'timesince': latest_message_timesince,
+            } if latest_message else None,
+            'conversation_timesince': conversation_timesince,  # For conversations with no messages
+            'unread_count': unread_count,
+            'updated_at': conv.updated_at.isoformat(),
+            'has_product': conv.product is not None,
+            'has_service': conv.service is not None,
+            'product_name': conv.product.name if conv.product else None,
+            'service_name': conv.service.name if conv.service else None,
+        })
+    
+    return JsonResponse({
+        'success': True,
+        'conversations': conversations_data
     })
 
 
