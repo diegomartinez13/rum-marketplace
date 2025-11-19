@@ -22,6 +22,7 @@ urlpatterns = [
     path("add-listing/", views.add_listing, name="add-listing"),
     path("messages/", views.messages_view, name="messages"),
     path("conversation/<int:conversation_id>/", views.conversation_view, name="conversation"),
+    path("conversation/<int:conversation_id>/new-messages/", views.get_new_messages, name="get_new_messages"),
     path("start-conversation/<int:user_id>/", views.start_conversation, name="start_conversation"),
     path("message-listing/<str:listing_type>/<int:listing_id>/", views.start_conversation_from_listing, name="message_listing"),
     path("add-product/", views.add_product, name="add-product"),
