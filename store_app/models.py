@@ -71,7 +71,7 @@ class Product(models.Model):
         ProductCategory, on_delete=models.CASCADE, related_name="products"
     )
     description = models.TextField(max_length=250, default="", blank=True, null=True)
-    image = models.ImageField(upload_to="uploads/products/")
+    image = models.ImageField(upload_to="uploads/products/", blank=True, null=True)  # Keep for backward compatibility
     discount = models.DecimalField(
         default=Decimal("0.00"), decimal_places=2, max_digits=6
     )
@@ -89,9 +89,33 @@ class Product(models.Model):
     @property
     def final_price(self):
         return self.price - self.discount
+    
+    @property
+    def primary_image(self):
+        """Get the primary image (first ProductImage or fallback to image field)"""
+        first_image = self.images.first()
+        if first_image:
+            return first_image.image
+        return self.image
 
     def __str__(self):
         return self.name
+
+
+class ProductImage(models.Model):
+    """Model to store multiple images for a product (up to 5)"""
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="images")
+    image = models.ImageField(upload_to="uploads/products/")
+    order = models.IntegerField(default=0, help_text="Order of image display (0 = primary)")
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['order', 'created_at']
+        verbose_name = "Product Image"
+        verbose_name_plural = "Product Images"
+    
+    def __str__(self):
+        return f"Image {self.order} for {self.product.name}"
 
 
 class ServiceCategory(models.Model):

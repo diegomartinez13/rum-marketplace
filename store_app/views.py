@@ -24,6 +24,7 @@ from .models import (
     User,
     Product,
     ProductCategory,
+    ProductImage,
     Service,
     ServiceCategory,
     UserProfile,
@@ -97,18 +98,41 @@ def add_product(request):
         category_id = data.get("category")
         category = get_object_or_404(ProductCategory, id=category_id)
         discount = ((float(data.get("discount"))/100) * price) if data.get("discount") else 0.00
-        image = request.FILES.get("image")
-
-        Product.objects.create(
+        
+        # Handle multiple images (up to 5)
+        images = request.FILES.getlist("images")
+        
+        # Validate image count
+        if not images:
+            messages.error(request, "Please upload at least one image.")
+            context = {"categories": categories}
+            return render(request, "add_product.html", context)
+        
+        if len(images) > 5:
+            messages.error(request, "You can upload a maximum of 5 images.")
+            context = {"categories": categories}
+            return render(request, "add_product.html", context)
+        
+        # Create product (use first image for backward compatibility)
+        product = Product.objects.create(
             name=name,
             description=description,
             price=price,
             category=category,
             discount=discount,
-            image=image,
-            user_vendor=request.user,  # Automatically set logged-in user as vendor
+            image=images[0] if images else None,  # First image for backward compatibility
+            user_vendor=request.user,
         )
-        messages.success(request, "Product added successfully!")
+        
+        # Save ALL images to ProductImage model
+        for index, img in enumerate(images):
+            ProductImage.objects.create(
+                product=product,
+                image=img,
+                order=index
+            )
+        
+        messages.success(request, f"Product added successfully with {len(images)} image(s)!")
         return redirect("store_app:home")
 
     context = {"categories": categories}
@@ -719,6 +743,29 @@ def update_profile(request, user_id):
         "profile": profile,
     }
     return render(request, "update_profile.html", context)
+
+def product_detail(request, product_id):
+    """Display detailed view of a product with image slideshow"""
+    product = get_object_or_404(Product, id=product_id)
+    
+    # Get all images for this product
+    product_images = product.images.all()
+    
+    # Get seller information
+    seller = product.user_vendor
+    seller_name = None
+    if seller:
+        seller_name = seller.get_full_name() or seller.username
+    
+    context = {
+        "product": product,
+        "product_images": product_images,
+        "seller": seller,
+        "seller_name": seller_name,
+        "user": request.user,
+    }
+    return render(request, "product_detail.html", context)
+
 
 def all_products(request):
     """Display all products"""

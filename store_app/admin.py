@@ -3,6 +3,7 @@ from .models import (
     UserProfile,
     ProductCategory,
     Product,
+    ProductImage,
     ServiceCategory,
     Service,
     ProductOrder,
@@ -37,6 +38,7 @@ class ServiceCategoryAdmin(admin.ModelAdmin):
 
 admin.site.register(UserProfile)
 admin.site.register(Product)
+admin.site.register(ProductImage)
 admin.site.register(Service)
 admin.site.register(ProductOrder)
 admin.site.register(ServiceRequest)
