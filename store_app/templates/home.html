@@ -132,9 +132,12 @@
 
 <!-- Floating Messages Button -->
 <div class="floating-messages-button">
-  <a href="{% url 'store_app:messages' %}" class="btn btn-primary shadow-lg floating-btn">
+  <a href="{% url 'store_app:messages' %}" class="btn btn-primary shadow-lg floating-btn" style="position: relative;">
     <i class="bi bi-chat-dots me-1" style="color: white;"></i>
     <span style="font-weight: 600; color: white;">Messages</span>
+    {% if unread_messages_count > 0 %}
+    <span class="message-badge">{{ unread_messages_count }}</span>
+    {% endif %}
   </a>
 </div>
 {% endif %}
@@ -198,6 +201,25 @@
     border-color: #0d6efd !important;
   }
 
+  /* Message Badge Styles */
+  .message-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background-color: #008e0e;
+    color: white;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border: 2px solid white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  }
+
 
   /* Mobile screens */
   @media (max-width: 768px) {
@@ -234,5 +256,49 @@
     }
   }
 </style>
+
+{% if user.is_authenticated %}
+<script>
+  // Function to update the message badge
+  function updateMessageBadge() {
+    fetch("{% url 'store_app:get_unread_messages_count' %}")
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          const badge = document.querySelector('.message-badge');
+          const messagesButton = document.querySelector('.floating-messages-button a');
+          
+          if (data.unread_count > 0) {
+           
+            if (badge) {
+              badge.textContent = data.unread_count;
+            } else {
+              // Create badge if it doesn't exist
+              const newBadge = document.createElement('span');
+              newBadge.className = 'message-badge';
+              newBadge.textContent = data.unread_count;
+              messagesButton.appendChild(newBadge);
+            }
+          } else {
+            // Remove badge if count is 0
+            if (badge) {
+              badge.remove();
+            }
+          }
+        }
+      })
+      .catch(error => {
+        console.error('Error updating message badge:', error);
+      });
+  }
+
+  // Update badge on page load
+  document.addEventListener('DOMContentLoaded', function() {
+    updateMessageBadge();
+    // Update badge every 10 seconds
+    setInterval(updateMessageBadge, 10000);
+  });
+</script>
+{% endif %}
 
 {% endblock %}

@@ -46,6 +46,17 @@ def home(request):
     products_categories = ProductCategory.objects.all()
     services_categories = ServiceCategory.objects.all()
     user = request.user
+    
+    # Calculate total unread messages count for authenticated users
+    unread_messages_count = 0
+    if user.is_authenticated:
+        # Get all conversations where the user is a participant
+        user_conversations = Conversation.objects.filter(participants=user)
+        # Count all unread messages in these conversations (excluding messages sent by the user)
+        unread_messages_count = Message.objects.filter(
+            conversation__in=user_conversations,
+            is_read=False
+        ).exclude(sender=user).count()
 
     context = {
         "newest_products": newest_products,
@@ -55,6 +66,7 @@ def home(request):
         "services_categories": services_categories,
         "user": user,
         "services": services,
+        "unread_messages_count": unread_messages_count,
     }
     return render(request, "home.html", context)
 
@@ -549,6 +561,29 @@ def get_new_messages(request, conversation_id):
         'success': True,
         'messages': messages_data
     })
+
+
+@login_required
+def get_unread_messages_count(request):
+    """API endpoint to get the total unread messages count for the logged-in user"""
+    try:
+        user_conversations = Conversation.objects.filter(participants=request.user)
+        unread_count = Message.objects.filter(
+            conversation__in=user_conversations,
+            is_read=False
+        ).exclude(sender=request.user).count()
+        
+        return JsonResponse({
+            'success': True,
+            'unread_count': unread_count
+        })
+    except Exception as e:
+        logger.error(f"Error in get_unread_messages_count: {str(e)}", exc_info=True)
+        return JsonResponse({
+            'success': False,
+            'error': 'An error occurred while fetching unread count',
+            'unread_count': 0
+        })
 
 
 @login_required
