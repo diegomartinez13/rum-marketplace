@@ -31,8 +31,14 @@
     {% for product in newest_products %}
     <div class="col-md-4 mb-4">
       <div class="card shadow-sm">
-        <img src="/media/{{ product.image }}" class="card-img-top bg-light border rounded" alt="{{ product.name }}" height="250px"
+        {% if product.primary_image %}
+        <img src="{{ product.primary_image.url }}" class="card-img-top bg-light border rounded" alt="{{ product.name }}" height="250px"
           style="object-fit: scale-down; object-position: center;">
+        {% else %}
+        <div class="card-img-top bg-light border rounded d-flex align-items-center justify-content-center" style="height: 250px;">
+          <i class="bi bi-image" style="font-size: 3rem; color: #ccc;"></i>
+        </div>
+        {% endif %}
         <div class="card-body">
           <h5 class="card-title">{{ product.name }}</h5>
           {% if user.is_authenticated %}
@@ -47,7 +53,7 @@
           <p class="card-text"><strong>Price:</strong> ${{ product.price }}</p>
           {% endif %}
           <div class="d-flex gap-2">
-            <a href="#" class="btn btn-outline-secondary">View Details</a>
+            <a href="{% url 'store_app:product_detail' product.id %}" class="btn btn-outline-secondary">View Details</a>
             {% if product.user_vendor != user %}
             <a href="{% url 'store_app:message_listing' 'product' product.id %}" class="btn btn-outline-primary">
               <i class="bi bi-chat me-1"></i>Message Seller

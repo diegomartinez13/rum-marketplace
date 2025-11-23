@@ -85,8 +85,14 @@
     {% for product in user_products %}
     <div class="col-md-4 mb-4">
       <div class="card">
-        <img src="/media/{{ product.image }}" class="card-img-top" alt="{{ product.name }}" height="250px"
+        {% if product.primary_image %}
+        <img src="{{ product.primary_image.url }}" class="card-img-top" alt="{{ product.name }}" height="250px"
           style="object-fit: scale-down;">
+        {% else %}
+        <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 250px;">
+          <i class="bi bi-image" style="font-size: 3rem; color: #ccc;"></i>
+        </div>
+        {% endif %}
         <div class="card-body">
           <h5 class="card-title">{{ product.name }}</h5>
           <p class="card-text">{{ product.description }}</p>
