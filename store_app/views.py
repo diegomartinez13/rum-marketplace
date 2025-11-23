@@ -65,26 +65,43 @@ def add_listing(request):
 @login_required
 def messages_view(request):
     """Display all conversations for the logged-in user"""
-    conversations = Conversation.objects.filter(participants=request.user).prefetch_related('participants', 'messages')
-    
-    # Add context for each conversation
-    conversations_with_context = []
-    for conv in conversations:
-        other_participant = conv.get_other_participant(request.user)
-        latest_message = conv.get_latest_message()
-        unread_count = conv.messages.filter(is_read=False).exclude(sender=request.user).count()
+    try:
+        conversations = Conversation.objects.filter(participants=request.user).prefetch_related('participants', 'messages')
         
-        conversations_with_context.append({
-            'conversation': conv,
-            'other_participant': other_participant,
-            'latest_message': latest_message,
-            'unread_count': unread_count,
-        })
-    
-    context = {
-        'conversations': conversations_with_context,
-    }
-    return render(request, "messages.html", context)
+        # Add context for each conversation
+        conversations_with_context = []
+        for conv in conversations:
+            try:
+                other_participant = conv.get_other_participant(request.user)
+                # Skip conversations where other_participant is None (shouldn't happen, but handle gracefully)
+                if other_participant is None:
+                    logger.warning(f"Conversation {conv.id} has no other participant for user {request.user.id}")
+                    continue
+                    
+                latest_message = conv.get_latest_message()
+                unread_count = conv.messages.filter(is_read=False).exclude(sender=request.user).count()
+                
+                conversations_with_context.append({
+                    'conversation': conv,
+                    'other_participant': other_participant,
+                    'latest_message': latest_message,
+                    'unread_count': unread_count,
+                })
+            except Exception as e:
+                logger.error(f"Error processing conversation {conv.id}: {str(e)}", exc_info=True)
+                continue
+        
+        context = {
+            'conversations': conversations_with_context,
+        }
+        return render(request, "messages.html", context)
+    except Exception as e:
+        logger.error(f"Error in messages_view: {str(e)}", exc_info=True)
+        # Return empty context on error to prevent 500
+        context = {
+            'conversations': [],
+        }
+        return render(request, "messages.html", context)
 
 
 @login_required
@@ -537,41 +554,58 @@ def get_new_messages(request, conversation_id):
 @login_required
 def get_conversations_update(request):
     """API endpoint to fetch updated conversation data for the messages list"""
-    conversations = Conversation.objects.filter(participants=request.user).prefetch_related('participants', 'messages')
-    
-    conversations_data = []
-    for conv in conversations:
-        other_participant = conv.get_other_participant(request.user)
-        latest_message = conv.get_latest_message()
-        unread_count = conv.messages.filter(is_read=False).exclude(sender=request.user).count()
+    try:
+        conversations = Conversation.objects.filter(participants=request.user).prefetch_related('participants', 'messages')
         
-        latest_message_timesince = None
-        conversation_timesince = timesince(conv.created_at, timezone.now())
-        if latest_message:
-            latest_message_timesince = timesince(latest_message.created_at, timezone.now())
+        conversations_data = []
+        for conv in conversations:
+            try:
+                other_participant = conv.get_other_participant(request.user)
+                # Skip conversations where other_participant is None
+                if other_participant is None:
+                    logger.warning(f"Conversation {conv.id} has no other participant for user {request.user.id}")
+                    continue
+                    
+                latest_message = conv.get_latest_message()
+                unread_count = conv.messages.filter(is_read=False).exclude(sender=request.user).count()
+                
+                latest_message_timesince = None
+                conversation_timesince = timesince(conv.created_at, timezone.now())
+                if latest_message:
+                    latest_message_timesince = timesince(latest_message.created_at, timezone.now())
+                
+                conversations_data.append({
+                    'id': conv.id,
+                    'other_participant_name': other_participant.get_full_name() if other_participant else 'Unknown',
+                    'other_participant_username': other_participant.username if other_participant else 'unknown',
+                    'latest_message': {
+                        'content': latest_message.content if latest_message else None,
+                        'timestamp': latest_message.created_at.strftime('%b %d, %Y %I:%M %p') if latest_message else None,
+                        'timesince': latest_message_timesince,
+                    } if latest_message else None,
+                    'conversation_timesince': conversation_timesince,  # For conversations with no messages
+                    'unread_count': unread_count,
+                    'updated_at': conv.updated_at.isoformat(),
+                    'has_product': conv.product is not None,
+                    'has_service': conv.service is not None,
+                    'product_name': conv.product.name if conv.product else None,
+                    'service_name': conv.service.name if conv.service else None,
+                })
+            except Exception as e:
+                logger.error(f"Error processing conversation {conv.id} in get_conversations_update: {str(e)}", exc_info=True)
+                continue
         
-        conversations_data.append({
-            'id': conv.id,
-            'other_participant_name': other_participant.get_full_name() if other_participant else 'Unknown',
-            'other_participant_username': other_participant.username if other_participant else 'unknown',
-            'latest_message': {
-                'content': latest_message.content if latest_message else None,
-                'timestamp': latest_message.created_at.strftime('%b %d, %Y %I:%M %p') if latest_message else None,
-                'timesince': latest_message_timesince,
-            } if latest_message else None,
-            'conversation_timesince': conversation_timesince,  # For conversations with no messages
-            'unread_count': unread_count,
-            'updated_at': conv.updated_at.isoformat(),
-            'has_product': conv.product is not None,
-            'has_service': conv.service is not None,
-            'product_name': conv.product.name if conv.product else None,
-            'service_name': conv.service.name if conv.service else None,
+        return JsonResponse({
+            'success': True,
+            'conversations': conversations_data
         })
-    
-    return JsonResponse({
-        'success': True,
-        'conversations': conversations_data
-    })
+    except Exception as e:
+        logger.error(f"Error in get_conversations_update: {str(e)}", exc_info=True)
+        return JsonResponse({
+            'success': False,
+            'error': 'An error occurred while fetching conversations',
+            'conversations': []
+        })
 
 
 @login_required

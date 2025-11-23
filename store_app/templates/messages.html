@@ -30,7 +30,7 @@
                     </div>
                     <div>
                       <h5 class="card-title mb-1">
-                        <span class="participant-name">{{ conv_data.other_participant.get_full_name|default:conv_data.other_participant.username }}</span>
+                        <span class="participant-name">{% if conv_data.other_participant %}{{ conv_data.other_participant.get_full_name|default:conv_data.other_participant.username }}{% else %}Unknown User{% endif %}</span>
                         <span class="unread-badge-container">
                           {% if conv_data.unread_count > 0 %}
                           <span class="badge bg-danger ms-2 unread-count">{{ conv_data.unread_count }}</span>
