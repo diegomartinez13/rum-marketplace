@@ -2,7 +2,7 @@
   {% csrf_token %}
   <div class="mb-3">
     <label for="resend-email" class="form-label">Email</label>
-    <input id="resend-email" name="email" type="email" class="form-control" placeholder="you@upr.edu" required>
+    <input id="resend-email" name="email" type="email" class="form-control" placeholder="you@upr.edu" value="{{ email }}" required>
   </div>
   <button type="submit" class="btn btn-primary">Resend verification email</button>
 </form>

@@ -9,8 +9,10 @@ from django.db import transaction
 from django.db.models import Q
 from django.contrib.auth import authenticate, login, logout
 from django.utils import timezone
+from django.utils.text import slugify
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
+from decimal import Decimal
 import logging
 from django.http import JsonResponse
 from datetime import timedelta
@@ -123,10 +125,11 @@ def add_product(request):
         data = request.POST
         name = data.get("name")
         description = data.get("description")
-        price = float(data.get("price"))
+        price = Decimal(data.get("price") or "0")
         category_id = data.get("category")
         category = get_object_or_404(ProductCategory, id=category_id)
-        discount = ((float(data.get("discount"))/100) * price) if data.get("discount") else 0.00
+        discount_input = data.get("discount")
+        discount = (Decimal(discount_input) / Decimal("100")) * price if discount_input else Decimal("0.00")
         
         # Handle multiple images (up to 5)
         images = request.FILES.getlist("images")
@@ -175,10 +178,11 @@ def add_service(request):
         data = request.POST
         name = data.get("name")
         description = data.get("description")
-        price = float(data.get("price"))
+        price = Decimal(data.get("price") or "0")
         category_id = data.get("category")
         category = get_object_or_404(ServiceCategory, id=category_id)
-        discount = ((float(data.get("discount"))/100) * price) if data.get("discount") else 0.00
+        discount_input = data.get("discount")
+        discount = (Decimal(discount_input) / Decimal("100")) * price if discount_input else Decimal("0.00")
         image = request.FILES.get("image")
 
         Service.objects.create(
@@ -197,18 +201,38 @@ def add_service(request):
     return render(request, "add_service.html", context)
 
 
+@login_required
 def create_category(request):
+    user_profile = getattr(request.user, "profile", None)
+    is_authorized = request.user.is_staff or request.user.is_superuser
+    if user_profile:
+        is_authorized = is_authorized or user_profile.is_seller or user_profile.provides_service
+    if not is_authorized:
+        messages.error(request, "You are not authorized to create categories.")
+        return redirect("store_app:home")
+
     if request.method == "POST":
-        name = request.POST.get("name")
-        description = request.POST.get("description")
+        name = (request.POST.get("name") or "").strip()
+        description = (request.POST.get("description") or "").strip()
         category_type = request.POST.get("category_type")
+        slug = slugify(name)
+
+        if not name or not slug:
+            messages.error(request, "Name is required to create a category.")
+            return redirect("add-listing")
 
         if category_type == "product":
-            ProductCategory.objects.create(name=name, description=description)
-            messages.success(request, "Product category created successfully!")
+            if ProductCategory.objects.filter(slug=slug).exists():
+                messages.error(request, "A product category with that name already exists.")
+            else:
+                ProductCategory.objects.create(name=name, slug=slug, description=description)
+                messages.success(request, "Product category created successfully!")
         elif category_type == "service":
-            ServiceCategory.objects.create(name=name, description=description)
-            messages.success(request, "Service category created successfully!")
+            if ServiceCategory.objects.filter(slug=slug).exists():
+                messages.error(request, "A service category with that name already exists.")
+            else:
+                ServiceCategory.objects.create(name=name, slug=slug, description=description)
+                messages.success(request, "Service category created successfully!")
         else:
             messages.error(request, "Invalid category type.")
 
@@ -231,7 +255,7 @@ def search(request):
 
 def login_view(request):
     if request.method == "POST":
-        email = request.POST.get("email")
+        email = (request.POST.get("email") or "").strip().lower()
         password = request.POST.get("password")
         remember_me = request.POST.get("remember_me")
 
@@ -239,43 +263,52 @@ def login_view(request):
             messages.error(request, "Please provide both email and password.")
             return redirect("store_app:login")
 
-        try:
-            # Find user by email (since we're using email for login)
-            user = User.objects.get(email=email.lower())
-            
-            # Authenticate using username (Django's default) or custom backend
-            authenticated_user = authenticate(
-                request,
-                username=user.username,  # Use the username for authentication
-                password=password,
-            )
-            
-            if authenticated_user is not None:
-                # Check if user's email is verified (your business logic)
-                if authenticated_user.profile.pending_email_verification: # type: ignore
-                    messages.warning(
-                        request, 
-                        "Please verify your email before logging in. "
-                        "Check your inbox for the verification link."
-                    )
-                    return redirect("store_app:home")
-                
-                # Log the user in
-                login(request, authenticated_user)
-                
-                # Handle "remember me" functionality
-                if not remember_me:
-                    # Set session to expire when browser closes
-                    request.session.set_expiry(0)
-                
-                messages.success(request, f"Welcome back, {user.first_name}!")
-                
-                return redirect("store_app:home")
-            else:
-                messages.error(request, "Invalid email or password.")
-                
-        except User.DoesNotExist:
+        users = list(User.objects.filter(email__iexact=email).order_by("id")[:2])
+        if not users:
             # Don't reveal whether email exists for security
+            messages.error(request, "Invalid email or password.")
+            return redirect("store_app:home")
+        if len(users) > 1:
+            logger.warning("Multiple user accounts share the email %s; authenticating with the first match.", email)
+
+        user = users[0]
+
+        # Authenticate using username (Django's default) or custom backend
+        authenticated_user = authenticate(
+            request,
+            username=user.username,  # Use the username for authentication
+            password=password,
+        )
+
+        if authenticated_user is not None:
+            # Check if user's email is verified (your business logic)
+            if authenticated_user.profile.pending_email_verification: # type: ignore
+                messages.warning(
+                    request, 
+                    "Please verify your email before logging in. "
+                    "Check your inbox for the verification link or resend it below."
+                )
+                return render(
+                    request,
+                    "login.html",
+                    {
+                        "show_resend_modal": True,
+                        "unverified_email": user.email,
+                    },
+                )
+            
+            # Log the user in
+            login(request, authenticated_user)
+            
+            # Handle "remember me" functionality
+            if not remember_me:
+                # Set session to expire when browser closes
+                request.session.set_expiry(0)
+            
+            messages.success(request, f"Welcome back, {user.first_name}!")
+            
+            return redirect("store_app:home")
+        else:
             messages.error(request, "Invalid email or password.")
 
         # redirect to home if logged in successfully
@@ -304,6 +337,14 @@ class SignupView(View):
 
         cd = form.cleaned_data
         token, expires = new_email_token(hours_valid=1)
+
+        # Defensive checks for duplicate username/email so we can show a clear message
+        if User.objects.filter(username__iexact=cd["username"]).exists():
+            messages.error(request, "That username is already taken. Please choose another.")
+            return render(request, self.template_name, {"form": form}, status=400)
+        if User.objects.filter(email__iexact=cd["email"]).exists():
+            messages.error(request, "An account with that email already exists. Try signing in or use another email.")
+            return render(request, self.template_name, {"form": form}, status=400)
 
         try:
             # Create Django User (for authentication)
@@ -341,7 +382,8 @@ class SignupView(View):
 
         except Exception as e:
             # Handle unique constraint violations (username/email already exists)
-            messages.error(request, "An error occurred during registration. Please try again.")
+            logger.exception("Error during user signup: %s", e)
+            messages.error(request, "An error occurred during registration. Please correct the errors and try again.")
             return render(request, self.template_name, {"form": form})
 
 
@@ -410,9 +452,9 @@ def _send_verification_email(request, user, profile):
   Generates a fresh token (60 min expiry) and sends the verification email.
   The email instructs the user to press the button on the page (two-step activation).
   """
-  token = new_email_token()
+  token, expires = new_email_token(hours_valid=1)
   profile.email_token = token
-  profile.email_token_expires_at = timezone.now() + timedelta(minutes=60)
+  profile.email_token_expires_at = expires
   profile.pending_email_verification = True
   profile.save(update_fields=["email_token", "email_token_expires_at", "pending_email_verification"])
 
@@ -434,15 +476,23 @@ def _send_verification_email(request, user, profile):
 class ResendVerificationView(View):
     template_name = "verify_result.html"
 
-    def getResendVerifiaction(self, request):
-        # show the small form
-        return render(request, self.template_name, {"status": "resend_form"})
+    def get(self, request):
+        email = (request.GET.get("email") or "").strip().lower()
+        return render(
+            request,
+            self.template_name,
+            {"status": "resend_form", "email": email},
+        )
 
-    def createResendVerification(self, request):
+    def post(self, request):
         email = (request.POST.get("email") or "").strip().lower()
         if not email:
             messages.error(request, "Please enter your email.")
-            return render(request, self.template_name, {"status": "resend_form"})
+            return render(
+                request,
+                self.template_name,
+                {"status": "resend_form", "email": email},
+            )
 
         # look for a user profile with pending verification
         profile = (
@@ -455,7 +505,11 @@ class ResendVerificationView(View):
         )
         if not profile:
             messages.error(request, "We didn't find a pending verification for that email.")
-            return render(request, self.template_name, {"status": "resend_form"})
+            return render(
+                request,
+                self.template_name,
+                {"status": "resend_form", "email": email},
+            )
 
         try:
             _send_verification_email(request, profile.user, profile)
@@ -463,7 +517,11 @@ class ResendVerificationView(View):
             return render(request, self.template_name, {"status": "resent"})
         except Exception:
             messages.error(request, "Couldn't send the email right now. Try again shortly.")
-            return render(request, self.template_name, {"status": "resend_form"})
+            return render(
+                request,
+                self.template_name,
+                {"status": "resend_form", "email": email},
+            )
 
 
 @login_required
@@ -762,9 +820,15 @@ def profile(request):
     }
     return render(request, "profile.html", context)
 
+
+@login_required
 def update_profile(request, user_id):
     """Update user profile information"""
-    user = get_object_or_404(User, id=user_id)
+    if request.user.id != user_id:
+        messages.error(request, "You are not authorized to edit this profile.")
+        return redirect("store_app:profile")
+
+    user = request.user
     profile = user.profile  # type: ignore
 
     if request.method == "POST":
