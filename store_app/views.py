@@ -439,8 +439,14 @@ class VerifyEmailView(View):
 def _send_verification_email(request, user, profile):
     """
     Generates a fresh token (60 min expiry), persists it, and sends the verification email.
-    The email instructs the user to press the button on the page (two-step activation).
     """
+    print(f"========== _send_verification_email CALLED ==========")
+    print(f"Request method: {request.method}")
+    print(f"Request path: {request.path}")
+    print(f"Request META HTTP_HOST: {request.META.get('HTTP_HOST', 'MISSING')}")
+    print(f"Request is_secure: {request.is_secure()}")
+    print(f"User email: {user.email}")
+    
     token, expires = new_email_token(hours_valid=1)
     now = timezone.now()
 
@@ -459,26 +465,46 @@ def _send_verification_email(request, user, profile):
         profile.verified_at = None
         profile.updated_at = now
 
+    print(f"Token saved: {token[:20]}...")
+    
     activate_url = request.build_absolute_uri(
         reverse("store_app:verify_email", kwargs={"token": token})
     )
+    
+    print(f"Activation URL built: {activate_url}")
+    
     ctx = {"username": user.username, "activate_url": activate_url}
 
-    # Keep the HTML template the same as signup and also include a plain text body
     html_body = render_to_string("emails/verify_email.html", ctx)
     text_body = (
         f"Hi {user.username},\n\n"
         f"Confirm your email for the RUM Marketplace Website:\n{activate_url}\n\n"
         "This link expires in 60 minutes."
     )
-    send_mail(
-        subject="Verify your RUM Marketplace email",
-        message=text_body,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=[user.email],
-        fail_silently=False,
-        html_message=html_body,
-    )
+    
+    print(f"Attempting send_mail...")
+    print(f"  From: {settings.DEFAULT_FROM_EMAIL}")
+    print(f"  To: {user.email}")
+    print(f"  Subject: Verify your RUM Marketplace email")
+    
+    try:
+        result = send_mail(
+            subject="Verify your RUM Marketplace email",
+            message=text_body,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
+            fail_silently=False,
+            html_message=html_body,
+        )
+        print(f"send_mail result: {result}")
+        print(f"========== EMAIL SENT SUCCESSFULLY ==========")
+    except Exception as e:
+        print(f"========== SEND_MAIL EXCEPTION ==========")
+        print(f"Exception type: {type(e).__name__}")
+        print(f"Exception message: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise
 
     return token, expires
 
@@ -497,7 +523,14 @@ class ResendVerificationView(View):
 
     def post(self, request):
         email = (request.POST.get("email") or "").strip().lower()
+        
+        print(f"========== RESEND POST RECEIVED ==========")
+        print(f"Email from form: {email}")
+        print(f"Request method: {request.method}")
+        print(f"Request user: {request.user}")
+        
         if not email:
+            print("ERROR: No email provided")
             messages.error(request, "Please enter your email.")
             return render(
                 request,
@@ -513,7 +546,11 @@ class ResendVerificationView(View):
             )
             .first()
         )
+        
+        print(f"Profile lookup result: {profile}")
+        
         if not profile:
+            print("ERROR: No profile found")
             messages.error(request, "We didn't find a pending verification for that email.")
             return render(
                 request,
@@ -522,16 +559,23 @@ class ResendVerificationView(View):
             )
 
         try:
-            print(f"========== ATTEMPTING RESEND TO {email} ==========")
+            print(f"Calling _send_verification_email for {profile.user.email}")
             logger.info("Resending verification email for %s (user id=%s)", profile.user.email, profile.user.id)
             _send_verification_email(request, profile.user, profile)
-            print(f"========== RESEND COMPLETED SUCCESSFULLY ==========")
+            print("_send_verification_email completed without exception")
             messages.success(request, f"We sent a new verification email to {email}.")
-                
+            return render(
+                request,
+                self.template_name,
+                {"status": "resent", "email": email},
+            )
         except Exception as exc:
-            # ADD MORE DETAILED LOGGING HERE
-            logger.exception("Failed to resend verification email to %s. Full error: %s", email, str(exc))
-            logger.error("Exception type: %s", type(exc).__name__)
+            print(f"========== EXCEPTION IN RESEND ==========")
+            print(f"Exception type: {type(exc).__name__}")
+            print(f"Exception message: {str(exc)}")
+            import traceback
+            traceback.print_exc()
+            logger.exception("Failed to resend verification email to %s", email)
             messages.error(request, "We couldn't send the verification email. Please try again shortly.")
             return render(
                 request,
