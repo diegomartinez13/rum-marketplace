@@ -533,11 +533,11 @@ class ResendVerificationView(View):
             )
         except Exception as exc:  # log and show error
             logger.exception("Failed to resend verification email to %s", email)
-            messages.error(request, "Couldn't send the email right now. Try again shortly.")
+            messages.error(request, "We couldn't send the verification email. Please try again shortly.")
             return render(
                 request,
                 self.template_name,
-                {"status": "resend_form", "email": email},
+                {"status": "resent_error", "email": email},
             )
 
 

@@ -28,6 +28,12 @@
       <p>Check your inbox for the new verification email. Open the link and press the <b>Activate</b> button.</p>
       {% if email %}<p class="text-muted">We sent it to <strong>{{ email }}</strong>.</p>{% endif %}
 
+    {% elif status == "resent_error" %}
+      <h2 class="text-danger">Verification email not sent</h2>
+      <p>We couldn't send the verification email right now. Please try again in a moment.</p>
+      {% if email %}<p class="text-muted">We tried sending to <strong>{{ email }}</strong>.</p>{% endif %}
+      {% include "partials/_resend_block.html" %}
+
     {% elif status == "resend_form" %}
       <h2>Resend verification</h2>
       {% if email %}<p class="text-muted">We will resend to <strong>{{ email }}</strong>.</p>{% endif %}

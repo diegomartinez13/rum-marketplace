@@ -178,23 +178,17 @@ LOGOUT_REDIRECT_URL = "/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# Email
-EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "anymail.backends.sendgrid.EmailBackend")
-DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "rummarketplace@gmail.com")
+# Email (force SendGrid via Anymail; Gmail SMTP fallback removed)
+EMAIL_BACKEND = "anymail.backends.sendgrid.EmailBackend"
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "no-reply@rummarketplace.com")
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 EMAIL_TIMEOUT = int(os.environ.get("EMAIL_TIMEOUT", "10"))
-
-if EMAIL_BACKEND.startswith("anymail"):
-    ANYMAIL = {
-        "SENDGRID_API_KEY": os.environ.get("SENDGRID_API_KEY", ""),
-    }
-else:
-    EMAIL_HOST = os.environ.get("EMAIL_HOST", "smtp.gmail.com")
-    EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
-    EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", True)
-    EMAIL_USE_SSL = env_bool("EMAIL_USE_SSL", False)
-    EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
-    EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+SENDGRID_API_KEY = os.environ.get("SENDGRID_API_KEY")
+if not SENDGRID_API_KEY:
+    raise ValueError("SENDGRID_API_KEY environment variable is required for email sending")
+ANYMAIL = {
+    "SENDGRID_API_KEY": SENDGRID_API_KEY,
+}
 
 # Security toggles (favor secure defaults in non-debug)
 SECURE_SSL_REDIRECT = env_bool("SECURE_SSL_REDIRECT", not DEBUG)
