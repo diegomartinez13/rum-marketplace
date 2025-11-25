@@ -29,7 +29,7 @@
         <i class="bi bi-tag me-2"></i>
         <strong>About:</strong>
         {% if conversation.product %}
-        <a href="#" class="text-decoration-none">{{ conversation.product.name }}</a>
+        <a href="{% url 'store_app:product_detail' conversation.product.id %}" class="text-decoration-none">{{ conversation.product.name }}</a>
         {% elif conversation.service %}
         <a href="#" class="text-decoration-none">{{ conversation.service.name }}</a>
         {% endif %}
@@ -55,6 +55,21 @@
                   {{ message.created_at|date:"M j, Y g:i A" }}
                 </small>
               </div>
+              {% if message.product or message.service %}
+              <div class="mb-2">
+                <small class="{% if message.sender == request.user %}text-white-50{% else %}text-muted{% endif %}">
+                  <i class="bi bi-tag me-1"></i>
+                  <strong>About:</strong>
+                  {% if message.product %}
+                  <a href="{% url 'store_app:product_detail' message.product.id %}" class="{% if message.sender == request.user %}text-white-50{% else %}text-decoration-none text-primary{% endif %}">
+                    {{ message.product.name }}
+                  </a>
+                  {% elif message.service %}
+                  {{ message.service.name }}
+                  {% endif %}
+                </small>
+              </div>
+              {% endif %}
               <p class="mb-0">{{ message.content }}</p>
             </div>
           </div>
@@ -79,6 +94,34 @@
         <div class="card-body">
           <form id="messageForm" method="post">
             {% csrf_token %}
+            {% if other_products or other_services %}
+            <div class="mb-3">
+              <label for="productServiceSelect" class="form-label small text-muted">
+                <i class="bi bi-tag me-1"></i>Select product/service (optional):
+              </label>
+              <select id="productServiceSelect" class="form-select form-select-sm">
+                <option value="">-- General conversation --</option>
+                {% if other_products %}
+                <optgroup label="Products">
+                  {% for product in other_products %}
+                  <option value="product_{{ product.id }}">
+                    {{ product.name }}{% if product.user_vendor == request.user %} (Yours){% endif %}
+                  </option>
+                  {% endfor %}
+                </optgroup>
+                {% endif %}
+                {% if other_services %}
+                <optgroup label="Services">
+                  {% for service in other_services %}
+                  <option value="service_{{ service.id }}">
+                    {{ service.name }}{% if service.user_provider == request.user %} (Yours){% endif %}
+                  </option>
+                  {% endfor %}
+                </optgroup>
+                {% endif %}
+              </select>
+            </div>
+            {% endif %}
             <div class="input-group">
               <textarea name="content" id="messageContent" class="form-control" placeholder="Type your message..."
                 rows="2" required style="resize: none;"></textarea>
@@ -86,6 +129,8 @@
                 <i class="bi bi-send me-1"></i>Send
               </button>
             </div>
+            <input type="hidden" name="product_id" id="productIdInput" value="">
+            <input type="hidden" name="service_id" id="serviceIdInput" value="">
           </form>
         </div>
       </div>
@@ -166,13 +211,44 @@
     timestamp.className = `${isCurrentUser ? 'text-white-50' : 'text-muted'} ms-2`;
     timestamp.textContent = messageData.timestamp;
 
+    messageHeader.appendChild(senderName);
+    messageHeader.appendChild(timestamp);
+    messageBubble.appendChild(messageHeader);
+
+    // Add product/service context if present
+    if (messageData.product || messageData.service) {
+      const contextDiv = document.createElement('div');
+      contextDiv.className = 'mb-2';
+      
+      const contextText = document.createElement('small');
+      contextText.className = isCurrentUser ? 'text-white-50' : 'text-muted';
+      
+      const icon = document.createElement('i');
+      icon.className = 'bi bi-tag me-1';
+      contextText.appendChild(icon);
+      
+      const strong = document.createElement('strong');
+      strong.textContent = 'About: ';
+      contextText.appendChild(strong);
+      
+      if (messageData.product) {
+        const link = document.createElement('a');
+        link.href = `/product/${messageData.product.id}/`;
+        link.className = isCurrentUser ? 'text-white-50' : 'text-decoration-none text-primary';
+        link.textContent = messageData.product.name;
+        contextText.appendChild(link);
+      } else if (messageData.service) {
+        contextText.appendChild(document.createTextNode(messageData.service.name));
+      }
+      
+      contextDiv.appendChild(contextText);
+      messageBubble.appendChild(contextDiv);
+    }
+
     const messageContent = document.createElement('p');
     messageContent.className = 'mb-0';
     messageContent.textContent = messageData.content;
 
-    messageHeader.appendChild(senderName);
-    messageHeader.appendChild(timestamp);
-    messageBubble.appendChild(messageHeader);
     messageBubble.appendChild(messageContent);
     messageDiv.appendChild(messageBubble);
 
@@ -310,6 +386,27 @@
     // Stop polling when user navigates away
     window.addEventListener('beforeunload', stopPolling);
 
+    // Handle product/service selection
+    const productServiceSelect = document.getElementById('productServiceSelect');
+    const productIdInput = document.getElementById('productIdInput');
+    const serviceIdInput = document.getElementById('serviceIdInput');
+    
+    if (productServiceSelect) {
+      productServiceSelect.addEventListener('change', function() {
+        const value = this.value;
+        if (value.startsWith('product_')) {
+          productIdInput.value = value.replace('product_', '');
+          serviceIdInput.value = '';
+        } else if (value.startsWith('service_')) {
+          serviceIdInput.value = value.replace('service_', '');
+          productIdInput.value = '';
+        } else {
+          productIdInput.value = '';
+          serviceIdInput.value = '';
+        }
+      });
+    }
+
     form.addEventListener('submit', function (e) {
       e.preventDefault(); // Prevent default form submission
 
@@ -318,6 +415,19 @@
 
       // Get CSRF token
       const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+      
+      // Get product/service IDs
+      const productId = productIdInput ? productIdInput.value : '';
+      const serviceId = serviceIdInput ? serviceIdInput.value : '';
+      
+      // Build request body
+      let body = `content=${encodeURIComponent(messageContent)}`;
+      if (productId) {
+        body += `&product_id=${encodeURIComponent(productId)}`;
+      }
+      if (serviceId) {
+        body += `&service_id=${encodeURIComponent(serviceId)}`;
+      }
 
       // Send AJAX request
       fetch(window.location.href, {
@@ -326,14 +436,14 @@
           'Content-Type': 'application/x-www-form-urlencoded',
           'X-CSRFToken': csrfToken
         },
-        body: `content=${encodeURIComponent(messageContent)}`
+        body: body
       })
         .then(response => response.json())
         .then(data => {
           if (data.success) {
             // Add message to conversation
             addMessageToConversation(data.message);
-            // Clear input
+            // Clear input (but keep product/service selection for next message)
             messageInput.value = '';
             
             // Signal that conversations need to be updated in messages list

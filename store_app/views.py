@@ -93,11 +93,26 @@ def messages_view(request):
                 latest_message = conv.get_latest_message()
                 unread_count = conv.messages.filter(is_read=False).exclude(sender=request.user).count()
                 
+                # Get unique products and services mentioned in messages
+                # Use a set to ensure uniqueness across all databases
+                mentioned_products_raw = conv.messages.filter(product__isnull=False).values_list('product', 'product__name')
+                mentioned_services_raw = conv.messages.filter(service__isnull=False).values_list('service', 'service__name')
+                
+                # Use dict to ensure uniqueness by ID (keeps last name if duplicates)
+                products_dict = {pid: pname for pid, pname in mentioned_products_raw}
+                services_dict = {sid: sname for sid, sname in mentioned_services_raw}
+                
+                # Convert to lists of dicts for easier template access
+                products_list = [{'id': pid, 'name': pname} for pid, pname in products_dict.items()]
+                services_list = [{'id': sid, 'name': sname} for sid, sname in services_dict.items()]
+                
                 conversations_with_context.append({
                     'conversation': conv,
                     'other_participant': other_participant,
                     'latest_message': latest_message,
                     'unread_count': unread_count,
+                    'mentioned_products': products_list,
+                    'mentioned_services': services_list,
                 })
             except Exception as e:
                 logger.error(f"Error processing conversation {conv.id}: {str(e)}", exc_info=True)
@@ -473,12 +488,17 @@ def conversation_view(request, conversation_id):
     
     if request.method == 'POST':
         content = request.POST.get('content', '').strip()
+        product_id = request.POST.get('product_id', '').strip()
+        service_id = request.POST.get('service_id', '').strip()
+        
         if content:
             # Create new message
             message = Message.objects.create(
                 conversation=conversation,
                 sender=request.user,
-                content=content
+                content=content,
+                product_id=int(product_id) if product_id else None,
+                service_id=int(service_id) if service_id else None,
             )
             # Update conversation's updated_at timestamp
             conversation.save()
@@ -486,15 +506,27 @@ def conversation_view(request, conversation_id):
             # Check if it's an AJAX request
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.headers.get('Content-Type') == 'application/x-www-form-urlencoded':
                 from django.http import JsonResponse
+                message_data = {
+                    'id': message.id,
+                    'sender': message.sender.username,
+                    'sender_name': message.sender.get_full_name() or message.sender.username,
+                    'content': message.content,
+                    'timestamp': message.created_at.strftime('%b %d, %Y %I:%M %p')
+                }
+                # Add product/service info if present
+                if message.product:
+                    message_data['product'] = {
+                        'id': message.product.id,
+                        'name': message.product.name
+                    }
+                if message.service:
+                    message_data['service'] = {
+                        'id': message.service.id,
+                        'name': message.service.name
+                    }
                 return JsonResponse({
                     'success': True,
-                    'message': {
-                        'id': message.id,
-                        'sender': message.sender.username,
-                        'sender_name': message.sender.get_full_name() or message.sender.username,
-                        'content': message.content,
-                        'timestamp': message.created_at.strftime('%b %d, %Y %I:%M %p')
-                    }
+                    'message': message_data
                 })
             else:
                 messages.success(request, 'Message sent!')
@@ -516,10 +548,30 @@ def conversation_view(request, conversation_id):
     messages_list = conversation.messages.all()
     other_participant = conversation.get_other_participant(request.user)
     
+    # Get all products and services from both participants
+    # This allows both buyer and seller to select context for their messages
+    available_products = []
+    available_services = []
+    
+    if other_participant:
+        # Get products/services from both current user and other participant
+        available_products = Product.objects.filter(
+            Q(user_vendor=request.user) | Q(user_vendor=other_participant)
+        ).order_by('name')
+        available_services = Service.objects.filter(
+            Q(user_provider=request.user) | Q(user_provider=other_participant)
+        ).order_by('name')
+    else:
+        # Fallback: just get current user's products/services
+        available_products = Product.objects.filter(user_vendor=request.user).order_by('name')
+        available_services = Service.objects.filter(user_provider=request.user).order_by('name')
+    
     context = {
         'conversation': conversation,
         'messages': messages_list,
         'other_participant': other_participant,
+        'other_products': available_products,
+        'other_services': available_services,
     }
     return render(request, "conversation.html", context)
 
@@ -549,13 +601,25 @@ def get_new_messages(request, conversation_id):
     # Serialize messages
     messages_data = []
     for message in new_messages:
-        messages_data.append({
+        message_data = {
             'id': message.id,
             'sender': message.sender.username,
             'sender_name': message.sender.get_full_name() or message.sender.username,
             'content': message.content,
             'timestamp': message.created_at.strftime('%b %d, %Y %I:%M %p')
-        })
+        }
+        # Add product/service info if present
+        if message.product:
+            message_data['product'] = {
+                'id': message.product.id,
+                'name': message.product.name
+            }
+        if message.service:
+            message_data['service'] = {
+                'id': message.service.id,
+                'name': message.service.name
+            }
+        messages_data.append(message_data)
     
     return JsonResponse({
         'success': True,
@@ -609,6 +673,19 @@ def get_conversations_update(request):
                 if latest_message:
                     latest_message_timesince = timesince(latest_message.created_at, timezone.now())
                 
+                # Get unique products and services mentioned in messages
+                # Use a dict to ensure uniqueness by ID (keeps last name if duplicates)
+                mentioned_products_raw = conv.messages.filter(product__isnull=False).values_list('product', 'product__name')
+                mentioned_services_raw = conv.messages.filter(service__isnull=False).values_list('service', 'service__name')
+                
+                # Use dict to ensure uniqueness by ID
+                products_dict = {pid: pname for pid, pname in mentioned_products_raw}
+                services_dict = {sid: sname for sid, sname in mentioned_services_raw}
+                
+                # Convert to lists of dicts
+                products_list = [{'id': pid, 'name': pname} for pid, pname in products_dict.items()]
+                services_list = [{'id': sid, 'name': sname} for sid, sname in services_dict.items()]
+                
                 conversations_data.append({
                     'id': conv.id,
                     'other_participant_name': other_participant.get_full_name() if other_participant else 'Unknown',
@@ -625,6 +702,8 @@ def get_conversations_update(request):
                     'has_service': conv.service is not None,
                     'product_name': conv.product.name if conv.product else None,
                     'service_name': conv.service.name if conv.service else None,
+                    'mentioned_products': products_list,
+                    'mentioned_services': services_list,
                 })
             except Exception as e:
                 logger.error(f"Error processing conversation {conv.id} in get_conversations_update: {str(e)}", exc_info=True)
