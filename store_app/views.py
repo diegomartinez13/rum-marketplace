@@ -516,6 +516,7 @@ class ResendVerificationView(View):
             )
 
         try:
+            logger.info("Resending verification email for %s (user id=%s)", profile.user.email, profile.user.id)
             _send_verification_email(request, profile.user, profile)
             messages.success(request, f"We sent a new verification email to {email}.")
             return render(
@@ -523,7 +524,8 @@ class ResendVerificationView(View):
                 self.template_name,
                 {"status": "resent", "email": email},
             )
-        except Exception:
+        except Exception as exc:  # log and show error
+            logger.exception("Failed to resend verification email to %s", email)
             messages.error(request, "Couldn't send the email right now. Try again shortly.")
             return render(
                 request,
