@@ -95,16 +95,23 @@ def messages_view(request):
                 
                 # Get unique products and services mentioned in messages
                 # Use a set to ensure uniqueness across all databases
-                mentioned_products_raw = conv.messages.filter(product__isnull=False).values_list('product', 'product__name')
-                mentioned_services_raw = conv.messages.filter(service__isnull=False).values_list('service', 'service__name')
-                
-                # Use dict to ensure uniqueness by ID (keeps last name if duplicates)
-                products_dict = {pid: pname for pid, pname in mentioned_products_raw}
-                services_dict = {sid: sname for sid, sname in mentioned_services_raw}
-                
-                # Convert to lists of dicts for easier template access
-                products_list = [{'id': pid, 'name': pname} for pid, pname in products_dict.items()]
-                services_list = [{'id': sid, 'name': sname} for sid, sname in services_dict.items()]
+                # Wrap in try-except in case fields don't exist yet (migration not run)
+                try:
+                    mentioned_products_raw = conv.messages.filter(product__isnull=False).values_list('product', 'product__name')
+                    mentioned_services_raw = conv.messages.filter(service__isnull=False).values_list('service', 'service__name')
+                    
+                    # Use dict to ensure uniqueness by ID (keeps last name if duplicates)
+                    products_dict = {pid: pname for pid, pname in mentioned_products_raw}
+                    services_dict = {sid: sname for sid, sname in mentioned_services_raw}
+                    
+                    # Convert to lists of dicts for easier template access
+                    products_list = [{'id': pid, 'name': pname} for pid, pname in products_dict.items()]
+                    services_list = [{'id': sid, 'name': sname} for sid, sname in services_dict.items()]
+                except Exception as e:
+                    # If fields don't exist yet (migration not run), return empty lists
+                    logger.warning(f"Error getting mentioned products/services for conversation {conv.id}: {str(e)}")
+                    products_list = []
+                    services_list = []
                 
                 conversations_with_context.append({
                     'conversation': conv,
@@ -493,13 +500,27 @@ def conversation_view(request, conversation_id):
         
         if content:
             # Create new message
-            message = Message.objects.create(
-                conversation=conversation,
-                sender=request.user,
-                content=content,
-                product_id=int(product_id) if product_id else None,
-                service_id=int(service_id) if service_id else None,
-            )
+            # Handle case where product/service fields might not exist yet (migration not run)
+            message_data = {
+                'conversation': conversation,
+                'sender': request.user,
+                'content': content,
+            }
+            # Only add product/service if fields exist
+            try:
+                if product_id:
+                    message_data['product_id'] = int(product_id)
+                if service_id:
+                    message_data['service_id'] = int(service_id)
+                message = Message.objects.create(**message_data)
+            except Exception as e:
+                # If fields don't exist, create without them
+                logger.warning(f"Error creating message with product/service fields: {str(e)}")
+                message = Message.objects.create(
+                    conversation=conversation,
+                    sender=request.user,
+                    content=content,
+                )
             # Update conversation's updated_at timestamp
             conversation.save()
             
@@ -513,17 +534,22 @@ def conversation_view(request, conversation_id):
                     'content': message.content,
                     'timestamp': message.created_at.strftime('%b %d, %Y %I:%M %p')
                 }
-                # Add product/service info if present
-                if message.product:
-                    message_data['product'] = {
-                        'id': message.product.id,
-                        'name': message.product.name
-                    }
-                if message.service:
-                    message_data['service'] = {
-                        'id': message.service.id,
-                        'name': message.service.name
-                    }
+                # Add product/service info if present (handle case where fields might not exist)
+                try:
+                    if hasattr(message, 'product') and message.product:
+                        message_data['product'] = {
+                            'id': message.product.id,
+                            'name': message.product.name
+                        }
+                    if hasattr(message, 'service') and message.service:
+                        message_data['service'] = {
+                            'id': message.service.id,
+                            'name': message.service.name
+                        }
+                except Exception as e:
+                    # Fields don't exist yet, skip adding product/service info
+                    logger.warning(f"Error accessing product/service fields on message: {str(e)}")
+                    pass
                 return JsonResponse({
                     'success': True,
                     'message': message_data
@@ -608,17 +634,22 @@ def get_new_messages(request, conversation_id):
             'content': message.content,
             'timestamp': message.created_at.strftime('%b %d, %Y %I:%M %p')
         }
-        # Add product/service info if present
-        if message.product:
-            message_data['product'] = {
-                'id': message.product.id,
-                'name': message.product.name
-            }
-        if message.service:
-            message_data['service'] = {
-                'id': message.service.id,
-                'name': message.service.name
-            }
+        # Add product/service info if present (handle case where fields might not exist)
+        try:
+            if hasattr(message, 'product') and message.product:
+                message_data['product'] = {
+                    'id': message.product.id,
+                    'name': message.product.name
+                }
+            if hasattr(message, 'service') and message.service:
+                message_data['service'] = {
+                    'id': message.service.id,
+                    'name': message.service.name
+                }
+        except Exception as e:
+            # Fields don't exist yet, skip adding product/service info
+            logger.warning(f"Error accessing product/service fields on message in get_new_messages: {str(e)}")
+            pass
         messages_data.append(message_data)
     
     return JsonResponse({
@@ -675,16 +706,23 @@ def get_conversations_update(request):
                 
                 # Get unique products and services mentioned in messages
                 # Use a dict to ensure uniqueness by ID (keeps last name if duplicates)
-                mentioned_products_raw = conv.messages.filter(product__isnull=False).values_list('product', 'product__name')
-                mentioned_services_raw = conv.messages.filter(service__isnull=False).values_list('service', 'service__name')
-                
-                # Use dict to ensure uniqueness by ID
-                products_dict = {pid: pname for pid, pname in mentioned_products_raw}
-                services_dict = {sid: sname for sid, sname in mentioned_services_raw}
-                
-                # Convert to lists of dicts
-                products_list = [{'id': pid, 'name': pname} for pid, pname in products_dict.items()]
-                services_list = [{'id': sid, 'name': sname} for sid, sname in services_dict.items()]
+                # Wrap in try-except in case fields don't exist yet (migration not run)
+                try:
+                    mentioned_products_raw = conv.messages.filter(product__isnull=False).values_list('product', 'product__name')
+                    mentioned_services_raw = conv.messages.filter(service__isnull=False).values_list('service', 'service__name')
+                    
+                    # Use dict to ensure uniqueness by ID
+                    products_dict = {pid: pname for pid, pname in mentioned_products_raw}
+                    services_dict = {sid: sname for sid, sname in mentioned_services_raw}
+                    
+                    # Convert to lists of dicts
+                    products_list = [{'id': pid, 'name': pname} for pid, pname in products_dict.items()]
+                    services_list = [{'id': sid, 'name': sname} for sid, sname in services_dict.items()]
+                except Exception as e:
+                    # If fields don't exist yet (migration not run), return empty lists
+                    logger.warning(f"Error getting mentioned products/services for conversation {conv.id} in get_conversations_update: {str(e)}")
+                    products_list = []
+                    services_list = []
                 
                 conversations_data.append({
                     'id': conv.id,
