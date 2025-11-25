@@ -4,7 +4,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.views import View
-from django.core.mail import EmailMessage
+from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import Q
 from django.contrib.auth import authenticate, login, logout
@@ -459,15 +459,21 @@ def _send_verification_email(request, user, profile):
   )
   ctx = {"username": user.username, "activate_url": activate_url}
 
+  # Keep the HTML template the same as signup and also include a plain text body
   html_body = render_to_string("emails/verify_email.html", ctx)
-  email = EmailMessage(
-      subject="Verify your RUM Marketplace email",
-      body=html_body,
-      from_email=settings.DEFAULT_FROM_EMAIL,
-      to=[user.email],
+  text_body = (
+      f"Hi {user.username},\n\n"
+      f"Confirm your email:\n{activate_url}\n\n"
+      "This link expires in 60 minutes."
   )
-  email.content_subtype = "html"
-  email.send(fail_silently=False)
+  send_mail(
+      subject="Verify your RUM Marketplace email",
+      message=text_body,
+      from_email=settings.DEFAULT_FROM_EMAIL,
+      recipient_list=[user.email],
+      fail_silently=False,
+      html_message=html_body,
+  )
 
 class ResendVerificationView(View):
     template_name = "verify_result.html"
