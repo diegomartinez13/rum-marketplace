@@ -937,3 +937,21 @@ def get_newest_services(request):
     """Return the 5 newest services as JSON (for AJAX calls)"""
     newest_services = Service.objects.order_by('-id')[:5]
     return {'services': newest_services}
+
+
+def custom_page_not_found(request, exception):
+    """
+    Render a friendly 404 page with navigation context.
+    """
+    products_categories = ProductCategory.objects.all()
+    services_categories = ServiceCategory.objects.all()
+    return render(
+        request,
+        "404.html",
+        {
+            "path": request.path,
+            "products_categories": products_categories,
+            "services_categories": services_categories,
+        },
+        status=404,
+    )
