@@ -522,14 +522,12 @@ class ResendVerificationView(View):
             )
 
         try:
+            print(f"========== ATTEMPTING RESEND TO {email} ==========")
             logger.info("Resending verification email for %s (user id=%s)", profile.user.email, profile.user.id)
             _send_verification_email(request, profile.user, profile)
+            print(f"========== RESEND COMPLETED SUCCESSFULLY ==========")
             messages.success(request, f"We sent a new verification email to {email}.")
-            return render(
-                request,
-                self.template_name,
-                {"status": "resent", "email": email},
-            )
+                
         except Exception as exc:
             # ADD MORE DETAILED LOGGING HERE
             logger.exception("Failed to resend verification email to %s. Full error: %s", email, str(exc))
