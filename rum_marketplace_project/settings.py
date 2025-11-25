@@ -180,7 +180,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Email (force SendGrid via Anymail; Gmail SMTP fallback removed)
 EMAIL_BACKEND = "anymail.backends.sendgrid.EmailBackend"
-DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "no-reply@rummarketplace.com")
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "rummarketplace@gmail.com")
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 EMAIL_TIMEOUT = int(os.environ.get("EMAIL_TIMEOUT", "10"))
 SENDGRID_API_KEY = os.environ.get("SENDGRID_API_KEY")

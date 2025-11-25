@@ -505,7 +505,6 @@ class ResendVerificationView(View):
                 {"status": "resend_form", "email": email},
             )
 
-        # look for a user profile with pending verification
         profile = (
             UserProfile.objects.select_related("user")
             .filter(
@@ -531,8 +530,10 @@ class ResendVerificationView(View):
                 self.template_name,
                 {"status": "resent", "email": email},
             )
-        except Exception as exc:  # log and show error
-            logger.exception("Failed to resend verification email to %s", email)
+        except Exception as exc:
+            # ADD MORE DETAILED LOGGING HERE
+            logger.exception("Failed to resend verification email to %s. Full error: %s", email, str(exc))
+            logger.error("Exception type: %s", type(exc).__name__)
             messages.error(request, "We couldn't send the verification email. Please try again shortly.")
             return render(
                 request,
