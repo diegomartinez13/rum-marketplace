@@ -330,7 +330,6 @@ class SignupView(View):
             return render(request, self.template_name, {"form": form}, status=400)
 
         cd = form.cleaned_data
-        token, expires = new_email_token(hours_valid=1)
 
         # Defensive checks for duplicate username/email so we can show a clear message
         if User.objects.filter(username__iexact=cd["username"]).exists():
@@ -357,20 +356,14 @@ class SignupView(View):
             profile.is_seller = cd.get("is_seller", False)
             profile.provides_service = cd.get("provides_service", False)
             profile.pending_email_verification = True
-            profile.email_token = token
-            profile.email_token_expires_at = expires
             profile.save()
 
             # Send verification email
-            activate_url = request.build_absolute_uri(
-                reverse("store_app:verify_email", kwargs={"token": token})
-            )
-            subject = "Verify your RUM Marketplace email"
-            body = f"Hi {user.first_name},\n\nConfirm your email:\n{activate_url}\n\nThis link expires in 1 hour."
             try:
-                send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, [user.email])
+                _send_verification_email(request, user, profile)
             except Exception:
-                pass  # don't block UX on email errors
+                # Don't block signup if email backend is misconfigured; log for troubleshooting.
+                logger.exception("Failed to send verification email during signup for %s", user.email)
 
             return redirect("store_app:email_verification_sent")
 
@@ -444,36 +437,50 @@ class VerifyEmailView(View):
 
 
 def _send_verification_email(request, user, profile):
-  """
-  Generates a fresh token (60 min expiry) and sends the verification email.
-  The email instructs the user to press the button on the page (two-step activation).
-  """
-  token, expires = new_email_token(hours_valid=1)
-  profile.email_token = token
-  profile.email_token_expires_at = expires
-  profile.pending_email_verification = True
-  profile.save(update_fields=["email_token", "email_token_expires_at", "pending_email_verification"])
+    """
+    Generates a fresh token (60 min expiry), persists it, and sends the verification email.
+    The email instructs the user to press the button on the page (two-step activation).
+    """
+    token, expires = new_email_token(hours_valid=1)
+    now = timezone.now()
 
-  activate_url = request.build_absolute_uri(
-      reverse("store_app:verify_email", kwargs={"token": token})
-  )
-  ctx = {"username": user.username, "activate_url": activate_url}
+    # Persist the new token/expiry before attempting to send the email.
+    with transaction.atomic():
+        UserProfile.objects.filter(pk=profile.pk).update(
+            email_token=token,
+            email_token_expires_at=expires,
+            pending_email_verification=True,
+            verified_at=None,
+            updated_at=now,
+        )
+        profile.email_token = token
+        profile.email_token_expires_at = expires
+        profile.pending_email_verification = True
+        profile.verified_at = None
+        profile.updated_at = now
 
-  # Keep the HTML template the same as signup and also include a plain text body
-  html_body = render_to_string("emails/verify_email.html", ctx)
-  text_body = (
-      f"Hi {user.username},\n\n"
-      f"Confirm your email:\n{activate_url}\n\n"
-      "This link expires in 60 minutes."
-  )
-  send_mail(
-      subject="Verify your RUM Marketplace email",
-      message=text_body,
-      from_email=settings.DEFAULT_FROM_EMAIL,
-      recipient_list=[user.email],
-      fail_silently=False,
-      html_message=html_body,
-  )
+    activate_url = request.build_absolute_uri(
+        reverse("store_app:verify_email", kwargs={"token": token})
+    )
+    ctx = {"username": user.username, "activate_url": activate_url}
+
+    # Keep the HTML template the same as signup and also include a plain text body
+    html_body = render_to_string("emails/verify_email.html", ctx)
+    text_body = (
+        f"Hi {user.username},\n\n"
+        f"Confirm your email for the RUM Marketplace Website:\n{activate_url}\n\n"
+        "This link expires in 60 minutes."
+    )
+    send_mail(
+        subject="Verify your RUM Marketplace email",
+        message=text_body,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[user.email],
+        fail_silently=False,
+        html_message=html_body,
+    )
+
+    return token, expires
 
 class ResendVerificationView(View):
     template_name = "verify_result.html"
