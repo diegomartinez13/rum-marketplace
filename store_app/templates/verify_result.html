@@ -9,6 +9,7 @@
     {% elif status == "expired" %}
       <h2>Link expired</h2>
       <p>This verification link has expired. Request a new one below.</p>
+      {% if email %}<p class="text-muted">We detected the email <strong>{{ email }}</strong>.</p>{% endif %}
       {% include "partials/_resend_block.html" %}
 
     {% elif status == "invalid" %}
@@ -19,9 +20,11 @@
     {% elif status == "resent" %}
       <h2>Verification email sent</h2>
       <p>Check your inbox for the new verification email. Open the link and press the <b>Activate</b> button.</p>
+      {% if email %}<p class="text-muted">We sent it to <strong>{{ email }}</strong>.</p>{% endif %}
 
     {% elif status == "resend_form" %}
       <h2>Resend verification</h2>
+      {% if email %}<p class="text-muted">We will resend to <strong>{{ email }}</strong>.</p>{% endif %}
       {% include "partials/_resend_block.html" %}
 
     {% else %}

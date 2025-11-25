@@ -284,18 +284,12 @@ def login_view(request):
             # Check if user's email is verified (your business logic)
             if authenticated_user.profile.pending_email_verification: # type: ignore
                 messages.warning(
-                    request, 
-                    "Please verify your email before logging in. "
-                    "Check your inbox for the verification link or resend it below."
-                )
-                return render(
                     request,
-                    "login.html",
-                    {
-                        "show_resend_modal": True,
-                        "unverified_email": user.email,
-                    },
+                    "Please verify your email before logging in. "
+                    "We redirected you to resend the verification link.",
                 )
+                resend_url = reverse("store_app:resend_verification")
+                return redirect(f"{resend_url}?email={user.email}")
             
             # Log the user in
             login(request, authenticated_user)
@@ -409,7 +403,7 @@ class VerifyEmailView(View):
 
         # Expiration check
         if profile.email_token_expires_at and profile.email_token_expires_at < timezone.now():
-            return None, "expired"
+            return profile, "expired"
 
         return profile, "ok"
 
@@ -418,7 +412,8 @@ class VerifyEmailView(View):
         profile, status = self._get_profile_for_token(token)
         if status != "ok":
             # Render a generic result page the app already uses
-            return render(request, self.result_template, {"status": status})
+            email = profile.user.email if profile else ""
+            return render(request, self.result_template, {"status": status, "email": email})
 
         return render(
             request,
@@ -433,7 +428,8 @@ class VerifyEmailView(View):
         # Only a human click (POST) can activate the account
         profile, status = self._get_profile_for_token(token)
         if status != "ok":
-            return render(request, self.result_template, {"status": status})
+            email = profile.user.email if profile else ""
+            return render(request, self.result_template, {"status": status, "email": email})
 
         # Re-check that the token still matches (defense-in-depth)
         if profile.email_token != token or not profile.pending_email_verification:
@@ -478,6 +474,8 @@ class ResendVerificationView(View):
 
     def get(self, request):
         email = (request.GET.get("email") or "").strip().lower()
+        if email:
+            messages.info(request, f"We'll resend the verification email to {email}.")
         return render(
             request,
             self.template_name,
@@ -513,8 +511,12 @@ class ResendVerificationView(View):
 
         try:
             _send_verification_email(request, profile.user, profile)
-            messages.success(request, "We sent you a new verification email.")
-            return render(request, self.template_name, {"status": "resent"})
+            messages.success(request, f"We sent a new verification email to {email}.")
+            return render(
+                request,
+                self.template_name,
+                {"status": "resent", "email": email},
+            )
         except Exception:
             messages.error(request, "Couldn't send the email right now. Try again shortly.")
             return render(
