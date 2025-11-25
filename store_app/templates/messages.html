@@ -61,14 +61,23 @@
                 </div>
               </div>
 
-              {% if conv_data.conversation.product or conv_data.conversation.service %}
-              <div class="mt-3 pt-3 border-top listing-info">
+              {% if conv_data.mentioned_products or conv_data.mentioned_services %}
+              <div class="mt-2 mentioned-contexts">
                 <small class="text-muted">
-                  <i class="bi bi-tag me-1"></i>
-                  {% if conv_data.conversation.product %}
-                  About: <strong class="listing-name">{{ conv_data.conversation.product.name }}</strong>
-                  {% elif conv_data.conversation.service %}
-                  About: <strong class="listing-name">{{ conv_data.conversation.service.name }}</strong>
+                  <i class="bi bi-tags me-1"></i>
+                  <strong>Discussed:</strong>
+                  {% if conv_data.mentioned_products %}
+                    {% for product in conv_data.mentioned_products %}
+                    <a href="{% url 'store_app:product_detail' product.id %}" class="text-decoration-none text-primary me-2">
+                      {{ product.name }}
+                    </a>{% if not forloop.last %},{% endif %}
+                    {% endfor %}
+                  {% endif %}
+                  {% if conv_data.mentioned_services %}
+                    {% if conv_data.mentioned_products %}, {% endif %}
+                    {% for service in conv_data.mentioned_services %}
+                    <span class="text-primary me-2">{{ service.name }}</span>{% if not forloop.last %},{% endif %}
+                    {% endfor %}
                   {% endif %}
                 </small>
               </div>
@@ -184,21 +193,34 @@
       }
     }
     
-    // Update listing info if present
-    if (convData.has_product || convData.has_service) {
-      let listingInfo = cardElement.querySelector('.listing-info');
-      if (!listingInfo) {
-        // Create listing info div if it doesn't exist
-        const cardBody = cardElement.querySelector('.card-body');
-        listingInfo = document.createElement('div');
-        listingInfo.className = 'mt-3 pt-3 border-top listing-info';
-        listingInfo.innerHTML = '<small class="text-muted"><i class="bi bi-tag me-1"></i>About: <strong class="listing-name"></strong></small>';
-        cardBody.appendChild(listingInfo);
+    // Update mentioned contexts (products/services discussed in messages)
+    const cardBody = cardElement.querySelector('.card-body');
+    let mentionedContexts = cardElement.querySelector('.mentioned-contexts');
+    
+    if (convData.mentioned_products && convData.mentioned_products.length > 0 || 
+        convData.mentioned_services && convData.mentioned_services.length > 0) {
+      if (!mentionedContexts) {
+        mentionedContexts = document.createElement('div');
+        mentionedContexts.className = 'mt-2 mentioned-contexts';
+        cardBody.appendChild(mentionedContexts);
       }
-      const listingName = listingInfo.querySelector('.listing-name');
-      if (listingName) {
-        listingName.textContent = convData.product_name || convData.service_name;
+      
+      const contexts = [];
+      if (convData.mentioned_products) {
+        convData.mentioned_products.forEach(product => {
+          contexts.push(`<a href="/product/${product.id}/" class="text-decoration-none text-primary me-2">${product.name}</a>`);
+        });
       }
+      if (convData.mentioned_services) {
+        convData.mentioned_services.forEach(service => {
+          contexts.push(`<span class="text-primary me-2">${service.name}</span>`);
+        });
+      }
+      
+      mentionedContexts.innerHTML = `<small class="text-muted"><i class="bi bi-tags me-1"></i><strong>Discussed:</strong> ${contexts.join(', ')}</small>`;
+    } else if (mentionedContexts) {
+      // Remove if no contexts
+      mentionedContexts.remove();
     }
   }
   

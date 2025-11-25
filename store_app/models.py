@@ -367,6 +367,10 @@ class Message(models.Model):
     is_read = models.BooleanField(default=False)
     read_at = models.DateTimeField(null=True, blank=True)
     
+    # Optional: Link to a product or service if the message is about a specific listing
+    product = models.ForeignKey('Product', on_delete=models.SET_NULL, null=True, blank=True, related_name='messages')
+    service = models.ForeignKey('Service', on_delete=models.SET_NULL, null=True, blank=True, related_name='messages')
+    
     class Meta:
         ordering = ['created_at']
     
