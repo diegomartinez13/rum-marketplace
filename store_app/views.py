@@ -1,6 +1,7 @@
 # store_app/views.py
 from django.contrib import messages
 from django.shortcuts import render, redirect, get_object_or_404
+from django.http import Http404
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.views import View
@@ -522,9 +523,11 @@ def conversation_view(request, conversation_id):
     """Display a specific conversation and handle sending messages"""
     try:
         conversation = get_object_or_404(Conversation, id=conversation_id, participants=request.user)
+    except Http404:
+        logger.warning(f"Conversation {conversation_id} not found or user {request.user.id} is not a participant")
+        return redirect('store_app:messages')
     except Exception as e:
         logger.error(f"Error accessing conversation {conversation_id}: {str(e)}", exc_info=True)
-        messages.error(request, "Conversation not found or access denied.")
         return redirect('store_app:messages')
     
     if request.method == 'POST':
@@ -635,31 +638,48 @@ def conversation_view(request, conversation_id):
         messages_list = conversation.messages.all()
         other_participant = conversation.get_other_participant(request.user)
         
+        if not other_participant:
+            logger.error(f"Conversation {conversation_id} has no other participant for user {request.user.id}")
+            messages.error(request, "Invalid conversation.")
+            return redirect('store_app:messages')
+        
         # Get all products and services from both participants
         # This allows both buyer and seller to select context for their messages
         available_products = []
         available_services = []
         
-        if other_participant:
-            # Get products/services from both current user and other participant
-            available_products = Product.objects.filter(
-                Q(user_vendor=request.user) | Q(user_vendor=other_participant)
-            ).order_by('name')
-            available_services = Service.objects.filter(
-                Q(user_provider=request.user) | Q(user_provider=other_participant)
-            ).order_by('name')
-        else:
-            # Fallback: just get current user's products/services
-            try:
-                available_products = Product.objects.filter(user_vendor=request.user).order_by('name')
-            except Exception as e:
-                logger.warning(f"Error getting available products: {str(e)}")
-                available_products = []
-            try:
-                available_services = Service.objects.filter(user_provider=request.user).order_by('name')
-            except Exception as e:
-                logger.warning(f"Error getting available services: {str(e)}")
-                available_services = []
+        try:
+            if other_participant:
+                # Get products/services from both current user and other participant
+                try:
+                    available_products = Product.objects.filter(
+                        Q(user_vendor=request.user) | Q(user_vendor=other_participant)
+                    ).order_by('name')
+                except Exception as e:
+                    logger.warning(f"Error getting available products: {str(e)}")
+                    available_products = []
+                try:
+                    available_services = Service.objects.filter(
+                        Q(user_provider=request.user) | Q(user_provider=other_participant)
+                    ).order_by('name')
+                except Exception as e:
+                    logger.warning(f"Error getting available services: {str(e)}")
+                    available_services = []
+            else:
+                # Fallback: just get current user's products/services
+                try:
+                    available_products = Product.objects.filter(user_vendor=request.user).order_by('name')
+                except Exception as e:
+                    logger.warning(f"Error getting available products: {str(e)}")
+                    available_products = []
+                try:
+                    available_services = Service.objects.filter(user_provider=request.user).order_by('name')
+                except Exception as e:
+                    logger.warning(f"Error getting available services: {str(e)}")
+                    available_services = []
+        except Exception as e:
+            logger.warning(f"Error getting products/services for conversation: {str(e)}")
+            # Continue with empty lists - not critical
         
         context = {
             'conversation': conversation,
@@ -671,7 +691,7 @@ def conversation_view(request, conversation_id):
         return render(request, "conversation.html", context)
     except Exception as e:
         logger.error(f"Error loading conversation {conversation_id}: {str(e)}", exc_info=True)
-        messages.error(request, "An error occurred while loading the conversation. Please try again.")
+        # Don't show error message that persists - just redirect silently
         return redirect('store_app:messages')
 
 
@@ -902,11 +922,8 @@ def start_conversation_from_listing(request, listing_type, listing_id):
         conversation.refresh_from_db()
         logger.info(f"Conversation {conversation.id} {'created' if created else 'retrieved'} for users {request.user.id} and {seller.id}")
         
-        if created:
-            messages.success(request, f'Started conversation with {seller.get_full_name() or seller.username} about {listing.name}')
-        else:
-            messages.info(request, f'You already have a conversation about {listing.name}')
-        
+        # Don't show messages - just redirect directly to the conversation
+        # This makes the Message Seller button open the chat directly
         return redirect('store_app:conversation', conversation_id=conversation.id)
     except Exception as e:
         logger.error(f"Error in start_conversation_from_listing: {str(e)}", exc_info=True)
