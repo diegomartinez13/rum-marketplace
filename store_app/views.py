@@ -78,7 +78,10 @@ def add_listing(request):
 def messages_view(request):
     """Display all conversations for the logged-in user"""
     try:
-        conversations = Conversation.objects.filter(participants=request.user).prefetch_related('participants', 'messages')
+        # Don't use prefetch_related if it might cause issues with missing fields
+        # Just get conversations and let Django lazy-load relationships
+        conversations = Conversation.objects.filter(participants=request.user)
+        logger.info(f"Found {conversations.count()} conversations for user {request.user.id}")
         
         # Add context for each conversation
         conversations_with_context = []
@@ -618,10 +621,14 @@ def conversation_view(request, conversation_id):
                 messages.error(request, 'Message cannot be empty.')
     
     # Mark all messages in this conversation as read (except those sent by current user)
-    conversation.messages.filter(is_read=False).exclude(sender=request.user).update(
-        is_read=True, 
-        read_at=timezone.now()
-    )
+    try:
+        conversation.messages.filter(is_read=False).exclude(sender=request.user).update(
+            is_read=True, 
+            read_at=timezone.now()
+        )
+    except Exception as e:
+        logger.warning(f"Error marking messages as read: {str(e)}")
+        # Continue anyway - this is not critical
     
     # Get all messages in this conversation
     try:
@@ -643,8 +650,16 @@ def conversation_view(request, conversation_id):
             ).order_by('name')
         else:
             # Fallback: just get current user's products/services
-            available_products = Product.objects.filter(user_vendor=request.user).order_by('name')
-            available_services = Service.objects.filter(user_provider=request.user).order_by('name')
+            try:
+                available_products = Product.objects.filter(user_vendor=request.user).order_by('name')
+            except Exception as e:
+                logger.warning(f"Error getting available products: {str(e)}")
+                available_products = []
+            try:
+                available_services = Service.objects.filter(user_provider=request.user).order_by('name')
+            except Exception as e:
+                logger.warning(f"Error getting available services: {str(e)}")
+                available_services = []
         
         context = {
             'conversation': conversation,
@@ -743,7 +758,8 @@ def get_unread_messages_count(request):
 def get_conversations_update(request):
     """API endpoint to fetch updated conversation data for the messages list"""
     try:
-        conversations = Conversation.objects.filter(participants=request.user).prefetch_related('participants', 'messages')
+        # Don't use prefetch_related if it might cause issues with missing fields
+        conversations = Conversation.objects.filter(participants=request.user)
         
         conversations_data = []
         for conv in conversations:
