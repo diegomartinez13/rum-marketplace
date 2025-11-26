@@ -5,13 +5,15 @@ from django.http import Http404
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.views import View
-from django.core.mail import EmailMessage
+from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import Q
 from django.contrib.auth import authenticate, login, logout
 from django.utils import timezone
+from django.utils.text import slugify
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
+from decimal import Decimal
 import logging
 from django.http import JsonResponse
 from datetime import timedelta
@@ -214,15 +216,12 @@ def add_product(request):
         data = request.POST
         name = data.get("name")
         description = data.get("description")
-        price = float(data.get("price"))
+        price = Decimal(data.get("price") or "0")
         category_id = data.get("category")
         category = get_object_or_404(ProductCategory, id=category_id)
-        discount = (
-            ((float(data.get("discount")) / 100) * price)
-            if data.get("discount")
-            else 0.00
-        )
-
+        discount_input = data.get("discount")
+        discount = (Decimal(discount_input) / Decimal("100")) * price if discount_input else Decimal("0.00")
+        
         # Handle multiple images (up to 5)
         images = request.FILES.getlist("images")
 
@@ -270,14 +269,11 @@ def add_service(request):
         data = request.POST
         name = data.get("name")
         description = data.get("description")
-        price = float(data.get("price"))
+        price = Decimal(data.get("price") or "0")
         category_id = data.get("category")
         category = get_object_or_404(ServiceCategory, id=category_id)
-        discount = (
-            ((float(data.get("discount")) / 100) * price)
-            if data.get("discount")
-            else 0.00
-        )
+        discount_input = data.get("discount")
+        discount = (Decimal(discount_input) / Decimal("100")) * price if discount_input else Decimal("0.00")
         image = request.FILES.get("image")
 
         Service.objects.create(
@@ -296,18 +292,38 @@ def add_service(request):
     return render(request, "add_service.html", context)
 
 
+@login_required
 def create_category(request):
+    user_profile = getattr(request.user, "profile", None)
+    is_authorized = request.user.is_staff or request.user.is_superuser
+    if user_profile:
+        is_authorized = is_authorized or user_profile.is_seller or user_profile.provides_service
+    if not is_authorized:
+        messages.error(request, "You are not authorized to create categories.")
+        return redirect("store_app:home")
+
     if request.method == "POST":
-        name = request.POST.get("name")
-        description = request.POST.get("description")
+        name = (request.POST.get("name") or "").strip()
+        description = (request.POST.get("description") or "").strip()
         category_type = request.POST.get("category_type")
+        slug = slugify(name)
+
+        if not name or not slug:
+            messages.error(request, "Name is required to create a category.")
+            return redirect("add-listing")
 
         if category_type == "product":
-            ProductCategory.objects.create(name=name, description=description)
-            messages.success(request, "Product category created successfully!")
+            if ProductCategory.objects.filter(slug=slug).exists():
+                messages.error(request, "A product category with that name already exists.")
+            else:
+                ProductCategory.objects.create(name=name, slug=slug, description=description)
+                messages.success(request, "Product category created successfully!")
         elif category_type == "service":
-            ServiceCategory.objects.create(name=name, description=description)
-            messages.success(request, "Service category created successfully!")
+            if ServiceCategory.objects.filter(slug=slug).exists():
+                messages.error(request, "A service category with that name already exists.")
+            else:
+                ServiceCategory.objects.create(name=name, slug=slug, description=description)
+                messages.success(request, "Service category created successfully!")
         else:
             messages.error(request, "Invalid category type.")
 
@@ -340,7 +356,7 @@ def search(request):
 
 def login_view(request):
     if request.method == "POST":
-        email = request.POST.get("email")
+        email = (request.POST.get("email") or "").strip().lower()
         password = request.POST.get("password")
         remember_me = request.POST.get("remember_me")
 
@@ -413,7 +429,14 @@ class SignupView(View):
             return render(request, self.template_name, {"form": form}, status=400)
 
         cd = form.cleaned_data
-        token, expires = new_email_token(hours_valid=1)
+
+        # Defensive checks for duplicate username/email so we can show a clear message
+        if User.objects.filter(username__iexact=cd["username"]).exists():
+            messages.error(request, "That username is already taken. Please choose another.")
+            return render(request, self.template_name, {"form": form}, status=400)
+        if User.objects.filter(email__iexact=cd["email"]).exists():
+            messages.error(request, "An account with that email already exists. Try signing in or use another email.")
+            return render(request, self.template_name, {"form": form}, status=400)
 
         try:
             # Create Django User (for authentication)
@@ -432,28 +455,21 @@ class SignupView(View):
             profile.is_seller = cd.get("is_seller", False)
             profile.provides_service = cd.get("provides_service", False)
             profile.pending_email_verification = True
-            profile.email_token = token
-            profile.email_token_expires_at = expires
             profile.save()
 
             # Send verification email
-            activate_url = request.build_absolute_uri(
-                reverse("store_app:verify_email", kwargs={"token": token})
-            )
-            subject = "Verify your RUM Marketplace email"
-            body = f"Hi {user.first_name},\n\nConfirm your email:\n{activate_url}\n\nThis link expires in 1 hour."
             try:
-                send_mail(subject, body, settings.DEFAULT_FROM_EMAIL, [user.email])
+                _send_verification_email(request, user, profile)
             except Exception:
-                pass  # don't block UX on email errors
+                # Don't block signup if email backend is misconfigured; log for troubleshooting.
+                logger.exception("Failed to send verification email during signup for %s", user.email)
 
             return redirect("store_app:email_verification_sent")
 
         except Exception as e:
             # Handle unique constraint violations (username/email already exists)
-            messages.error(
-                request, "An error occurred during registration. Please try again."
-            )
+            logger.exception("Error during user signup: %s", e)
+            messages.error(request, "An error occurred during registration. Please correct the errors and try again.")
             return render(request, self.template_name, {"form": form})
 
 
@@ -479,11 +495,8 @@ class VerifyEmailView(View):
             return None, "invalid"
 
         # Expiration check
-        if (
-            profile.email_token_expires_at
-            and profile.email_token_expires_at < timezone.now()
-        ):
-            return None, "expired"
+        if profile.email_token_expires_at and profile.email_token_expires_at < timezone.now():
+            return profile, "expired"
 
         return profile, "ok"
 
@@ -492,7 +505,8 @@ class VerifyEmailView(View):
         profile, status = self._get_profile_for_token(token)
         if status != "ok":
             # Render a generic result page the app already uses
-            return render(request, self.result_template, {"status": status})
+            email = profile.user.email if profile else ""
+            return render(request, self.result_template, {"status": status, "email": email})
 
         return render(
             request,
@@ -507,7 +521,8 @@ class VerifyEmailView(View):
         # Only a human click (POST) can activate the account
         profile, status = self._get_profile_for_token(token)
         if status != "ok":
-            return render(request, self.result_template, {"status": status})
+            email = profile.user.email if profile else ""
+            return render(request, self.result_template, {"status": status, "email": email})
 
         # Re-check that the token still matches (defense-in-depth)
         if profile.email_token != token or not profile.pending_email_verification:
@@ -522,75 +537,75 @@ class VerifyEmailView(View):
 
 def _send_verification_email(request, user, profile):
     """
-    Generates a fresh token (60 min expiry) and sends the verification email.
-    The email instructs the user to press the button on the page (two-step activation).
+    Generates a fresh token (60 min expiry), persists it, and sends the verification email.
     """
-    token = new_email_token()
-    profile.email_token = token
-    profile.email_token_expires_at = timezone.now() + timedelta(minutes=60)
-    profile.pending_email_verification = True
-    profile.save(
-        update_fields=[
-            "email_token",
-            "email_token_expires_at",
-            "pending_email_verification",
-        ]
-    )
+    print(f"========== _send_verification_email CALLED ==========")
+    print(f"Request method: {request.method}")
+    print(f"Request path: {request.path}")
+    print(f"Request META HTTP_HOST: {request.META.get('HTTP_HOST', 'MISSING')}")
+    print(f"Request is_secure: {request.is_secure()}")
+    print(f"User email: {user.email}")
+    
+    token, expires = new_email_token(hours_valid=1)
+    now = timezone.now()
 
+    # Persist the new token/expiry before attempting to send the email.
+    with transaction.atomic():
+        UserProfile.objects.filter(pk=profile.pk).update(
+            email_token=token,
+            email_token_expires_at=expires,
+            pending_email_verification=True,
+            verified_at=None,
+            updated_at=now,
+        )
+        profile.email_token = token
+        profile.email_token_expires_at = expires
+        profile.pending_email_verification = True
+        profile.verified_at = None
+        profile.updated_at = now
+
+    print(f"Token saved: {token[:20]}...")
+    
     activate_url = request.build_absolute_uri(
         reverse("store_app:verify_email", kwargs={"token": token})
     )
+    
+    print(f"Activation URL built: {activate_url}")
+    
     ctx = {"username": user.username, "activate_url": activate_url}
 
     html_body = render_to_string("emails/verify_email.html", ctx)
-    email = EmailMessage(
-        subject="Verify your RUM Marketplace email",
-        body=html_body,
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        to=[user.email],
+    text_body = (
+        f"Hi {user.username},\n\n"
+        f"Confirm your email for the RUM Marketplace Website:\n{activate_url}\n\n"
+        "This link expires in 60 minutes."
     )
-    email.content_subtype = "html"
-    email.send(fail_silently=False)
-
-
-class ResendVerificationView(View):
-    template_name = "verify_result.html"
-
-    def getResendVerifiaction(self, request):
-        # show the small form
-        return render(request, self.template_name, {"status": "resend_form"})
-
-    def createResendVerification(self, request):
-        email = (request.POST.get("email") or "").strip().lower()
-        if not email:
-            messages.error(request, "Please enter your email.")
-            return render(request, self.template_name, {"status": "resend_form"})
-
-        # look for a user profile with pending verification
-        profile = (
-            UserProfile.objects.select_related("user")
-            .filter(
-                Q(user__email__iexact=email),
-                Q(pending_email_verification=True),
-            )
-            .first()
+    
+    print(f"Attempting send_mail...")
+    print(f"  From: {settings.DEFAULT_FROM_EMAIL}")
+    print(f"  To: {user.email}")
+    print(f"  Subject: Verify your RUM Marketplace email")
+    
+    try:
+        result = send_mail(
+            subject="Verify your RUM Marketplace email",
+            message=text_body,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
+            fail_silently=False,
+            html_message=html_body,
         )
-        if not profile:
-            messages.error(
-                request, "We didn't find a pending verification for that email."
-            )
-            return render(request, self.template_name, {"status": "resend_form"})
+        print(f"send_mail result: {result}")
+        print(f"========== EMAIL SENT SUCCESSFULLY ==========")
+    except Exception as e:
+        print(f"========== SEND_MAIL EXCEPTION ==========")
+        print(f"Exception type: {type(e).__name__}")
+        print(f"Exception message: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise
 
-        try:
-            _send_verification_email(request, profile.user, profile)
-            messages.success(request, "We sent you a new verification email.")
-            return render(request, self.template_name, {"status": "resent"})
-        except Exception:
-            messages.error(
-                request, "Couldn't send the email right now. Try again shortly."
-            )
-            return render(request, self.template_name, {"status": "resend_form"})
-
+    return token, expires
 
 @login_required
 def conversation_view(request, conversation_id):
@@ -1190,9 +1205,14 @@ def profile(request):
     return render(request, "profile.html", context)
 
 
+@login_required
 def update_profile(request, user_id):
     """Update user profile information"""
-    user = get_object_or_404(User, id=user_id)
+    if request.user.id != user_id:
+        messages.error(request, "You are not authorized to edit this profile.")
+        return redirect("store_app:profile")
+
+    user = request.user
     profile = user.profile  # type: ignore
 
     if request.method == "POST":
@@ -1298,5 +1318,23 @@ def get_newest_products(request):
 
 def get_newest_services(request):
     """Return the 5 newest services as JSON (for AJAX calls)"""
-    newest_services = Service.objects.order_by("-id")[:5]
-    return {"services": newest_services}
+    newest_services = Service.objects.order_by('-id')[:5]
+    return {'services': newest_services}
+
+
+def custom_page_not_found(request, exception):
+    """
+    Render a friendly 404 page with navigation context.
+    """
+    products_categories = ProductCategory.objects.all()
+    services_categories = ServiceCategory.objects.all()
+    return render(
+        request,
+        "404.html",
+        {
+            "path": request.path,
+            "products_categories": products_categories,
+            "services_categories": services_categories,
+        },
+        status=404,
+    )

@@ -149,7 +149,7 @@ class Service(models.Model):
         ServiceCategory, on_delete=models.CASCADE, related_name="services"
     )
     description = models.TextField(max_length=250, default="", blank=True, null=True)
-    image = models.ImageField(upload_to="uploads/services/")
+    image = models.ImageField(upload_to="uploads/services/", blank=True, null=True)
     discount = models.DecimalField(
         default=Decimal("0.00"), decimal_places=2, max_digits=6
     )
