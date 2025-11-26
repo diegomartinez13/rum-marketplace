@@ -491,7 +491,12 @@ class ResendVerificationView(View):
 @login_required
 def conversation_view(request, conversation_id):
     """Display a specific conversation and handle sending messages"""
-    conversation = get_object_or_404(Conversation, id=conversation_id, participants=request.user)
+    try:
+        conversation = get_object_or_404(Conversation, id=conversation_id, participants=request.user)
+    except Exception as e:
+        logger.error(f"Error accessing conversation {conversation_id}: {str(e)}", exc_info=True)
+        messages.error(request, "Conversation not found or access denied.")
+        return redirect('store_app:messages')
     
     if request.method == 'POST':
         content = request.POST.get('content', '').strip()
@@ -571,35 +576,40 @@ def conversation_view(request, conversation_id):
     )
     
     # Get all messages in this conversation
-    messages_list = conversation.messages.all()
-    other_participant = conversation.get_other_participant(request.user)
-    
-    # Get all products and services from both participants
-    # This allows both buyer and seller to select context for their messages
-    available_products = []
-    available_services = []
-    
-    if other_participant:
-        # Get products/services from both current user and other participant
-        available_products = Product.objects.filter(
-            Q(user_vendor=request.user) | Q(user_vendor=other_participant)
-        ).order_by('name')
-        available_services = Service.objects.filter(
-            Q(user_provider=request.user) | Q(user_provider=other_participant)
-        ).order_by('name')
-    else:
-        # Fallback: just get current user's products/services
-        available_products = Product.objects.filter(user_vendor=request.user).order_by('name')
-        available_services = Service.objects.filter(user_provider=request.user).order_by('name')
-    
-    context = {
-        'conversation': conversation,
-        'messages': messages_list,
-        'other_participant': other_participant,
-        'other_products': available_products,
-        'other_services': available_services,
-    }
-    return render(request, "conversation.html", context)
+    try:
+        messages_list = conversation.messages.all()
+        other_participant = conversation.get_other_participant(request.user)
+        
+        # Get all products and services from both participants
+        # This allows both buyer and seller to select context for their messages
+        available_products = []
+        available_services = []
+        
+        if other_participant:
+            # Get products/services from both current user and other participant
+            available_products = Product.objects.filter(
+                Q(user_vendor=request.user) | Q(user_vendor=other_participant)
+            ).order_by('name')
+            available_services = Service.objects.filter(
+                Q(user_provider=request.user) | Q(user_provider=other_participant)
+            ).order_by('name')
+        else:
+            # Fallback: just get current user's products/services
+            available_products = Product.objects.filter(user_vendor=request.user).order_by('name')
+            available_services = Service.objects.filter(user_provider=request.user).order_by('name')
+        
+        context = {
+            'conversation': conversation,
+            'messages': messages_list,
+            'other_participant': other_participant,
+            'other_products': available_products,
+            'other_services': available_services,
+        }
+        return render(request, "conversation.html", context)
+    except Exception as e:
+        logger.error(f"Error loading conversation {conversation_id}: {str(e)}", exc_info=True)
+        messages.error(request, "An error occurred while loading the conversation. Please try again.")
+        return redirect('store_app:messages')
 
 
 @login_required
@@ -781,40 +791,45 @@ def start_conversation(request, user_id):
 @login_required
 def start_conversation_from_listing(request, listing_type, listing_id):
     """Start a conversation from a product or service listing"""
-    if listing_type == 'product':
-        listing = get_object_or_404(Product, id=listing_id)
-        seller = listing.user_vendor
-    elif listing_type == 'service':
-        listing = get_object_or_404(Service, id=listing_id)
-        seller = listing.user_provider
-    else:
-        messages.error(request, "Invalid listing type.")
+    try:
+        if listing_type == 'product':
+            listing = get_object_or_404(Product, id=listing_id)
+            seller = listing.user_vendor
+        elif listing_type == 'service':
+            listing = get_object_or_404(Service, id=listing_id)
+            seller = listing.user_provider
+        else:
+            messages.error(request, "Invalid listing type.")
+            return redirect('store_app:home')
+        
+        if not seller:
+            messages.error(request, "This listing has no seller.")
+            return redirect('store_app:home')
+        
+        if seller == request.user:
+            messages.error(request, "You cannot message yourself about your own listing.")
+            return redirect('store_app:home')
+        
+        # Get or create conversation
+        conversation, created = Conversation.get_or_create_conversation(request.user, seller)
+        
+        # Link conversation to the listing
+        if listing_type == 'product':
+            conversation.product = listing
+        else:
+            conversation.service = listing
+        conversation.save()
+        
+        if created:
+            messages.success(request, f'Started conversation with {seller.get_full_name() or seller.username} about {listing.name}')
+        else:
+            messages.info(request, f'You already have a conversation about {listing.name}')
+        
+        return redirect('store_app:conversation', conversation_id=conversation.id)
+    except Exception as e:
+        logger.error(f"Error in start_conversation_from_listing: {str(e)}", exc_info=True)
+        messages.error(request, "An error occurred while starting the conversation. Please try again.")
         return redirect('store_app:home')
-    
-    if not seller:
-        messages.error(request, "This listing has no seller.")
-        return redirect('store_app:home')
-    
-    if seller == request.user:
-        messages.error(request, "You cannot message yourself about your own listing.")
-        return redirect('store_app:home')
-    
-    # Get or create conversation
-    conversation, created = Conversation.get_or_create_conversation(request.user, seller)
-    
-    # Link conversation to the listing
-    if listing_type == 'product':
-        conversation.product = listing
-    else:
-        conversation.service = listing
-    conversation.save()
-    
-    if created:
-        messages.success(request, f'Started conversation with {seller.get_full_name() or seller.username} about {listing.name}')
-    else:
-        messages.info(request, f'You already have a conversation about {listing.name}')
-    
-    return redirect('store_app:conversation', conversation_id=conversation.id)
 
 
 @login_required
