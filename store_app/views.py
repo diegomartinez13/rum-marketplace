@@ -285,11 +285,9 @@ def login_view(request):
             if authenticated_user.profile.pending_email_verification: # type: ignore
                 messages.warning(
                     request,
-                    "Please verify your email before logging in. "
-                    "We redirected you to resend the verification link.",
+                    "Please verify your email before logging in. Check your inbox for the verification email.",
                 )
-                resend_url = reverse("store_app:resend_verification")
-                return redirect(f"{resend_url}?email={user.email}")
+                return redirect("store_app:email_verification_sent")
             
             # Log the user in
             login(request, authenticated_user)
@@ -507,82 +505,6 @@ def _send_verification_email(request, user, profile):
         raise
 
     return token, expires
-
-class ResendVerificationView(View):
-    template_name = "verify_result.html"
-
-    def get(self, request):
-        email = (request.GET.get("email") or "").strip().lower()
-        if email:
-            messages.info(request, f"We'll resend the verification email to {email}.")
-        return render(
-            request,
-            self.template_name,
-            {"status": "resend_form", "email": email},
-        )
-
-    def post(self, request):
-        email = (request.POST.get("email") or "").strip().lower()
-        
-        print(f"========== RESEND POST RECEIVED ==========")
-        print(f"Email from form: {email}")
-        print(f"Request method: {request.method}")
-        print(f"Request user: {request.user}")
-        
-        if not email:
-            print("ERROR: No email provided")
-            messages.error(request, "Please enter your email.")
-            return render(
-                request,
-                self.template_name,
-                {"status": "resend_form", "email": email},
-            )
-
-        profile = (
-            UserProfile.objects.select_related("user")
-            .filter(
-                Q(user__email__iexact=email),
-                Q(pending_email_verification=True),
-            )
-            .first()
-        )
-        
-        print(f"Profile lookup result: {profile}")
-        
-        if not profile:
-            print("ERROR: No profile found")
-            messages.error(request, "We didn't find a pending verification for that email.")
-            return render(
-                request,
-                self.template_name,
-                {"status": "resend_form", "email": email},
-            )
-
-        try:
-            print(f"Calling _send_verification_email for {profile.user.email}")
-            logger.info("Resending verification email for %s (user id=%s)", profile.user.email, profile.user.id)
-            _send_verification_email(request, profile.user, profile)
-            print("_send_verification_email completed without exception")
-            messages.success(request, f"We sent a new verification email to {email}.")
-            return render(
-                request,
-                self.template_name,
-                {"status": "resent", "email": email},
-            )
-        except Exception as exc:
-            print(f"========== EXCEPTION IN RESEND ==========")
-            print(f"Exception type: {type(exc).__name__}")
-            print(f"Exception message: {str(exc)}")
-            import traceback
-            traceback.print_exc()
-            logger.exception("Failed to resend verification email to %s", email)
-            messages.error(request, "We couldn't send the verification email. Please try again shortly.")
-            return render(
-                request,
-                self.template_name,
-                {"status": "resent_error", "email": email},
-            )
-
 
 @login_required
 def conversation_view(request, conversation_id):
