@@ -355,6 +355,8 @@ class Conversation(models.Model):
         # Create new conversation
         conversation = cls.objects.create()
         conversation.participants.add(user1, user2)
+        # Explicitly save to ensure it's persisted
+        conversation.save()
         return conversation, True
 
 

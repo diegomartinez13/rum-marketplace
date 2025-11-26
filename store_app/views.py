@@ -532,28 +532,50 @@ def conversation_view(request, conversation_id):
         if content:
             # Create new message
             # Handle case where product/service fields might not exist yet (migration not run)
-            message_data = {
-                'conversation': conversation,
-                'sender': request.user,
-                'content': content,
-            }
-            # Only add product/service if fields exist
             try:
+                message_data = {
+                    'conversation': conversation,
+                    'sender': request.user,
+                    'content': content,
+                }
+                # Only add product/service if provided and fields exist
                 if product_id:
-                    message_data['product_id'] = int(product_id)
+                    try:
+                        message_data['product_id'] = int(product_id)
+                    except (ValueError, TypeError):
+                        pass  # Invalid product_id, skip it
                 if service_id:
-                    message_data['service_id'] = int(service_id)
-                message = Message.objects.create(**message_data)
+                    try:
+                        message_data['service_id'] = int(service_id)
+                    except (ValueError, TypeError):
+                        pass  # Invalid service_id, skip it
+                
+                # Try to create message with product/service fields
+                try:
+                    message = Message.objects.create(**message_data)
+                except Exception as e:
+                    # If fields don't exist in DB, create without them
+                    logger.warning(f"Error creating message with product/service fields: {str(e)}")
+                    # Remove product/service from message_data and try again
+                    message_data.pop('product_id', None)
+                    message_data.pop('service_id', None)
+                    message = Message.objects.create(**message_data)
+                
+                # Ensure message is saved
+                message.save()
+                
+                # Update conversation's updated_at timestamp
+                conversation.save()
+                
+                logger.info(f"Message {message.id} created successfully in conversation {conversation.id}")
             except Exception as e:
-                # If fields don't exist, create without them
-                logger.warning(f"Error creating message with product/service fields: {str(e)}")
-                message = Message.objects.create(
-                    conversation=conversation,
-                    sender=request.user,
-                    content=content,
-                )
-            # Update conversation's updated_at timestamp
-            conversation.save()
+                logger.error(f"Error creating message: {str(e)}", exc_info=True)
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.headers.get('Content-Type') == 'application/x-www-form-urlencoded':
+                    from django.http import JsonResponse
+                    return JsonResponse({'success': False, 'error': 'Failed to send message. Please try again.'})
+                else:
+                    messages.error(request, 'Failed to send message. Please try again.')
+                    return redirect('store_app:conversation', conversation_id=conversation_id)
             
             # Check if it's an AJAX request
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.headers.get('Content-Type') == 'application/x-www-form-urlencoded':
@@ -808,6 +830,16 @@ def start_conversation(request, user_id):
     # Get or create conversation
     conversation, created = Conversation.get_or_create_conversation(request.user, other_user)
     
+    # Verify conversation exists in database
+    if not conversation.id:
+        logger.error(f"Conversation was not saved properly for users {request.user.id} and {other_user.id}")
+        messages.error(request, "Failed to create conversation. Please try again.")
+        return redirect('store_app:home')
+    
+    # Refresh from DB to ensure we have the latest data
+    conversation.refresh_from_db()
+    logger.info(f"Conversation {conversation.id} {'created' if created else 'retrieved'} for users {request.user.id} and {other_user.id}")
+    
     if not created:
         messages.info(request, f'You already have a conversation with {other_user.get_full_name() or other_user.username}')
     
@@ -839,12 +871,20 @@ def start_conversation_from_listing(request, listing_type, listing_id):
         # Get or create conversation
         conversation, created = Conversation.get_or_create_conversation(request.user, seller)
         
+        # Ensure conversation is saved
+        if not conversation.id:
+            conversation.save()
+        
         # Link conversation to the listing
         if listing_type == 'product':
             conversation.product = listing
         else:
             conversation.service = listing
         conversation.save()
+        
+        # Verify conversation was saved
+        conversation.refresh_from_db()
+        logger.info(f"Conversation {conversation.id} {'created' if created else 'retrieved'} for users {request.user.id} and {seller.id}")
         
         if created:
             messages.success(request, f'Started conversation with {seller.get_full_name() or seller.username} about {listing.name}')
