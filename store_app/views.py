@@ -1,6 +1,7 @@
 # store_app/views.py
 from django.contrib import messages
 from django.shortcuts import render, redirect, get_object_or_404
+from django.http import Http404
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.views import View
@@ -78,7 +79,10 @@ def add_listing(request):
 def messages_view(request):
     """Display all conversations for the logged-in user"""
     try:
-        conversations = Conversation.objects.filter(participants=request.user).prefetch_related('participants', 'messages')
+        # Don't use prefetch_related if it might cause issues with missing fields
+        # Just get conversations and let Django lazy-load relationships
+        conversations = Conversation.objects.filter(participants=request.user)
+        logger.info(f"Found {conversations.count()} conversations for user {request.user.id}")
         
         # Add context for each conversation
         conversations_with_context = []
@@ -519,9 +523,11 @@ def conversation_view(request, conversation_id):
     """Display a specific conversation and handle sending messages"""
     try:
         conversation = get_object_or_404(Conversation, id=conversation_id, participants=request.user)
+    except Http404:
+        logger.warning(f"Conversation {conversation_id} not found or user {request.user.id} is not a participant")
+        return redirect('store_app:messages')
     except Exception as e:
         logger.error(f"Error accessing conversation {conversation_id}: {str(e)}", exc_info=True)
-        messages.error(request, "Conversation not found or access denied.")
         return redirect('store_app:messages')
     
     if request.method == 'POST':
@@ -532,28 +538,50 @@ def conversation_view(request, conversation_id):
         if content:
             # Create new message
             # Handle case where product/service fields might not exist yet (migration not run)
-            message_data = {
-                'conversation': conversation,
-                'sender': request.user,
-                'content': content,
-            }
-            # Only add product/service if fields exist
             try:
+                message_data = {
+                    'conversation': conversation,
+                    'sender': request.user,
+                    'content': content,
+                }
+                # Only add product/service if provided and fields exist
                 if product_id:
-                    message_data['product_id'] = int(product_id)
+                    try:
+                        message_data['product_id'] = int(product_id)
+                    except (ValueError, TypeError):
+                        pass  # Invalid product_id, skip it
                 if service_id:
-                    message_data['service_id'] = int(service_id)
-                message = Message.objects.create(**message_data)
+                    try:
+                        message_data['service_id'] = int(service_id)
+                    except (ValueError, TypeError):
+                        pass  # Invalid service_id, skip it
+                
+                # Try to create message with product/service fields
+                try:
+                    message = Message.objects.create(**message_data)
+                except Exception as e:
+                    # If fields don't exist in DB, create without them
+                    logger.warning(f"Error creating message with product/service fields: {str(e)}")
+                    # Remove product/service from message_data and try again
+                    message_data.pop('product_id', None)
+                    message_data.pop('service_id', None)
+                    message = Message.objects.create(**message_data)
+                
+                # Ensure message is saved
+                message.save()
+                
+                # Update conversation's updated_at timestamp
+                conversation.save()
+                
+                logger.info(f"Message {message.id} created successfully in conversation {conversation.id}")
             except Exception as e:
-                # If fields don't exist, create without them
-                logger.warning(f"Error creating message with product/service fields: {str(e)}")
-                message = Message.objects.create(
-                    conversation=conversation,
-                    sender=request.user,
-                    content=content,
-                )
-            # Update conversation's updated_at timestamp
-            conversation.save()
+                logger.error(f"Error creating message: {str(e)}", exc_info=True)
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.headers.get('Content-Type') == 'application/x-www-form-urlencoded':
+                    from django.http import JsonResponse
+                    return JsonResponse({'success': False, 'error': 'Failed to send message. Please try again.'})
+                else:
+                    messages.error(request, 'Failed to send message. Please try again.')
+                    return redirect('store_app:conversation', conversation_id=conversation_id)
             
             # Check if it's an AJAX request
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.headers.get('Content-Type') == 'application/x-www-form-urlencoded':
@@ -596,33 +624,62 @@ def conversation_view(request, conversation_id):
                 messages.error(request, 'Message cannot be empty.')
     
     # Mark all messages in this conversation as read (except those sent by current user)
-    conversation.messages.filter(is_read=False).exclude(sender=request.user).update(
-        is_read=True, 
-        read_at=timezone.now()
-    )
+    try:
+        conversation.messages.filter(is_read=False).exclude(sender=request.user).update(
+            is_read=True, 
+            read_at=timezone.now()
+        )
+    except Exception as e:
+        logger.warning(f"Error marking messages as read: {str(e)}")
+        # Continue anyway - this is not critical
     
     # Get all messages in this conversation
     try:
         messages_list = conversation.messages.all()
         other_participant = conversation.get_other_participant(request.user)
         
+        if not other_participant:
+            logger.error(f"Conversation {conversation_id} has no other participant for user {request.user.id}")
+            messages.error(request, "Invalid conversation.")
+            return redirect('store_app:messages')
+        
         # Get all products and services from both participants
         # This allows both buyer and seller to select context for their messages
         available_products = []
         available_services = []
         
-        if other_participant:
-            # Get products/services from both current user and other participant
-            available_products = Product.objects.filter(
-                Q(user_vendor=request.user) | Q(user_vendor=other_participant)
-            ).order_by('name')
-            available_services = Service.objects.filter(
-                Q(user_provider=request.user) | Q(user_provider=other_participant)
-            ).order_by('name')
-        else:
-            # Fallback: just get current user's products/services
-            available_products = Product.objects.filter(user_vendor=request.user).order_by('name')
-            available_services = Service.objects.filter(user_provider=request.user).order_by('name')
+        try:
+            if other_participant:
+                # Get products/services from both current user and other participant
+                try:
+                    available_products = Product.objects.filter(
+                        Q(user_vendor=request.user) | Q(user_vendor=other_participant)
+                    ).order_by('name')
+                except Exception as e:
+                    logger.warning(f"Error getting available products: {str(e)}")
+                    available_products = []
+                try:
+                    available_services = Service.objects.filter(
+                        Q(user_provider=request.user) | Q(user_provider=other_participant)
+                    ).order_by('name')
+                except Exception as e:
+                    logger.warning(f"Error getting available services: {str(e)}")
+                    available_services = []
+            else:
+                # Fallback: just get current user's products/services
+                try:
+                    available_products = Product.objects.filter(user_vendor=request.user).order_by('name')
+                except Exception as e:
+                    logger.warning(f"Error getting available products: {str(e)}")
+                    available_products = []
+                try:
+                    available_services = Service.objects.filter(user_provider=request.user).order_by('name')
+                except Exception as e:
+                    logger.warning(f"Error getting available services: {str(e)}")
+                    available_services = []
+        except Exception as e:
+            logger.warning(f"Error getting products/services for conversation: {str(e)}")
+            # Continue with empty lists - not critical
         
         context = {
             'conversation': conversation,
@@ -634,7 +691,7 @@ def conversation_view(request, conversation_id):
         return render(request, "conversation.html", context)
     except Exception as e:
         logger.error(f"Error loading conversation {conversation_id}: {str(e)}", exc_info=True)
-        messages.error(request, "An error occurred while loading the conversation. Please try again.")
+        # Don't show error message that persists - just redirect silently
         return redirect('store_app:messages')
 
 
@@ -721,7 +778,8 @@ def get_unread_messages_count(request):
 def get_conversations_update(request):
     """API endpoint to fetch updated conversation data for the messages list"""
     try:
-        conversations = Conversation.objects.filter(participants=request.user).prefetch_related('participants', 'messages')
+        # Don't use prefetch_related if it might cause issues with missing fields
+        conversations = Conversation.objects.filter(participants=request.user)
         
         conversations_data = []
         for conv in conversations:
@@ -808,6 +866,16 @@ def start_conversation(request, user_id):
     # Get or create conversation
     conversation, created = Conversation.get_or_create_conversation(request.user, other_user)
     
+    # Verify conversation exists in database
+    if not conversation.id:
+        logger.error(f"Conversation was not saved properly for users {request.user.id} and {other_user.id}")
+        messages.error(request, "Failed to create conversation. Please try again.")
+        return redirect('store_app:home')
+    
+    # Refresh from DB to ensure we have the latest data
+    conversation.refresh_from_db()
+    logger.info(f"Conversation {conversation.id} {'created' if created else 'retrieved'} for users {request.user.id} and {other_user.id}")
+    
     if not created:
         messages.info(request, f'You already have a conversation with {other_user.get_full_name() or other_user.username}')
     
@@ -839,6 +907,10 @@ def start_conversation_from_listing(request, listing_type, listing_id):
         # Get or create conversation
         conversation, created = Conversation.get_or_create_conversation(request.user, seller)
         
+        # Ensure conversation is saved
+        if not conversation.id:
+            conversation.save()
+        
         # Link conversation to the listing
         if listing_type == 'product':
             conversation.product = listing
@@ -846,11 +918,12 @@ def start_conversation_from_listing(request, listing_type, listing_id):
             conversation.service = listing
         conversation.save()
         
-        if created:
-            messages.success(request, f'Started conversation with {seller.get_full_name() or seller.username} about {listing.name}')
-        else:
-            messages.info(request, f'You already have a conversation about {listing.name}')
+        # Verify conversation was saved
+        conversation.refresh_from_db()
+        logger.info(f"Conversation {conversation.id} {'created' if created else 'retrieved'} for users {request.user.id} and {seller.id}")
         
+        # Don't show messages - just redirect directly to the conversation
+        # This makes the Message Seller button open the chat directly
         return redirect('store_app:conversation', conversation_id=conversation.id)
     except Exception as e:
         logger.error(f"Error in start_conversation_from_listing: {str(e)}", exc_info=True)
