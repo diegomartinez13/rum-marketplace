@@ -90,8 +90,19 @@ def messages_view(request):
                     logger.warning(f"Conversation {conv.id} has no other participant for user {request.user.id}")
                     continue
                     
-                latest_message = conv.get_latest_message()
-                unread_count = conv.messages.filter(is_read=False).exclude(sender=request.user).count()
+                # Get latest message - handle errors gracefully
+                try:
+                    latest_message = conv.get_latest_message()
+                except Exception as e:
+                    logger.warning(f"Error getting latest message for conversation {conv.id}: {str(e)}")
+                    latest_message = None
+                
+                # Get unread count - handle errors gracefully
+                try:
+                    unread_count = conv.messages.filter(is_read=False).exclude(sender=request.user).count()
+                except Exception as e:
+                    logger.warning(f"Error getting unread count for conversation {conv.id}: {str(e)}")
+                    unread_count = 0
                 
                 # Get unique products and services mentioned in messages
                 # Use a set to ensure uniqueness across all databases
@@ -122,8 +133,23 @@ def messages_view(request):
                     'mentioned_services': services_list,
                 })
             except Exception as e:
+                # Log the error but still try to add the conversation with minimal data
                 logger.error(f"Error processing conversation {conv.id}: {str(e)}", exc_info=True)
-                continue
+                # Try to get at least basic info to show the conversation
+                try:
+                    other_participant = conv.get_other_participant(request.user)
+                    if other_participant:
+                        conversations_with_context.append({
+                            'conversation': conv,
+                            'other_participant': other_participant,
+                            'latest_message': None,
+                            'unread_count': 0,
+                            'mentioned_products': [],
+                            'mentioned_services': [],
+                        })
+                except Exception as e2:
+                    logger.error(f"Could not add conversation {conv.id} even with minimal data: {str(e2)}")
+                    continue
         
         context = {
             'conversations': conversations_with_context,
