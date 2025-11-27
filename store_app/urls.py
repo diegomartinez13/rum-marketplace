@@ -13,7 +13,6 @@ urlpatterns = [
     path("logout/", views.logout_view, name="logout"),
     path("signup/", views.SignupView.as_view(), name="signup"),
     path("verify/<str:token>/", views.VerifyEmailView.as_view(), name="verify_email"),
-    path("verify/resend/", views.ResendVerificationView.as_view(), name="resend_verification"),
     path(
         "verify-email/",
         lambda r: render(r, "registration/email_verification_sent.html"),

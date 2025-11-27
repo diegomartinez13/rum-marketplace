@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container py-5" style="max-width: 720px;">
+  <div class="text-center">
+    <h1 class="display-5 fw-bold text-danger">404</h1>
+    <p class="lead">We couldn't find the page you were looking for.</p>
+    {% if path %}
+      <p class="text-muted">Requested path: <code>{{ path }}</code></p>
+    {% endif %}
+    <div class="d-flex justify-content-center gap-3 mt-4">
+      <a href="{% url 'store_app:home' %}" class="btn btn-success">Go to Home</a>
+      <a href="javascript:history.back()" class="btn btn-outline-secondary">Go Back</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
