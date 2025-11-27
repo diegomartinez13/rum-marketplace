@@ -44,16 +44,20 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.ERROR('Operation cancelled.'))
                 return
         
+        # Get actual counts before deletion
+        actual_message_count = Message.objects.count()
+        actual_conversation_count = Conversation.objects.count()
+        
         # Delete messages first (due to foreign key constraint)
-        deleted_messages = Message.objects.all().delete()
+        Message.objects.all().delete()
         self.stdout.write(
-            self.style.SUCCESS(f'Successfully deleted {deleted_messages[0]} message(s)')
+            self.style.SUCCESS(f'Successfully deleted {actual_message_count} message(s)')
         )
         
         # Delete conversations
-        deleted_conversations = Conversation.objects.all().delete()
+        Conversation.objects.all().delete()
         self.stdout.write(
-            self.style.SUCCESS(f'Successfully deleted {deleted_conversations[0]} conversation(s)')
+            self.style.SUCCESS(f'Successfully deleted {actual_conversation_count} conversation(s)')
         )
         
         self.stdout.write(
