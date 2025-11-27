@@ -357,6 +357,8 @@ class Conversation(models.Model):
         conversation.participants.add(user1, user2)
         # Explicitly save to ensure it's persisted
         conversation.save()
+        # Refresh from DB to ensure participants are loaded
+        conversation.refresh_from_db()
         return conversation, True
 
 

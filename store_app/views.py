@@ -611,12 +611,22 @@ def _send_verification_email(request, user, profile):
 def conversation_view(request, conversation_id):
     """Display a specific conversation and handle sending messages"""
     try:
-        conversation = get_object_or_404(
-            Conversation, id=conversation_id, participants=request.user
-        )
+        # Get conversation and verify user is a participant
+        conversation = get_object_or_404(Conversation, id=conversation_id)
+        
+        # Verify user is a participant
+        if request.user not in conversation.participants.all():
+            logger.warning(
+                f"User {request.user.id} is not a participant in conversation {conversation_id}"
+            )
+            return redirect("store_app:messages")
+            
+        # Refresh to ensure all relationships are loaded
+        conversation.refresh_from_db()
+        
     except Http404:
         logger.warning(
-            f"Conversation {conversation_id} not found or user {request.user.id} is not a participant"
+            f"Conversation {conversation_id} not found"
         )
         return redirect("store_app:messages")
     except Exception as e:
@@ -759,6 +769,9 @@ def conversation_view(request, conversation_id):
 
     # Get all messages in this conversation
     try:
+        # Refresh conversation to ensure all relationships are loaded
+        conversation.refresh_from_db()
+        
         messages_list = conversation.messages.all()
         other_participant = conversation.get_other_participant(request.user)
 
@@ -766,7 +779,9 @@ def conversation_view(request, conversation_id):
             logger.error(
                 f"Conversation {conversation_id} has no other participant for user {request.user.id}"
             )
-            messages.error(request, "Invalid conversation.")
+            logger.error(f"Conversation participants: {[p.id for p in conversation.participants.all()]}")
+            logger.error(f"Current user ID: {request.user.id}")
+            # Don't show error message - just redirect silently
             return redirect("store_app:messages")
 
         # Get all products and services from both participants
@@ -826,6 +841,8 @@ def conversation_view(request, conversation_id):
         logger.error(
             f"Error loading conversation {conversation_id}: {str(e)}", exc_info=True
         )
+        logger.error(f"Conversation exists: {Conversation.objects.filter(id=conversation_id).exists()}")
+        logger.error(f"User {request.user.id} is participant: {Conversation.objects.filter(id=conversation_id, participants=request.user).exists()}")
         # Don't show error message that persists - just redirect silently
         return redirect("store_app:messages")
 
@@ -1117,11 +1134,15 @@ def start_conversation_from_listing(request, listing_type, listing_id):
             conversation.service = listing
         conversation.save()
 
-        # Verify conversation was saved
+        # Verify conversation was saved and refresh to ensure all relationships are loaded
         conversation.refresh_from_db()
+        # Force reload participants to ensure they're available
+        list(conversation.participants.all())  # This forces the query to execute
+        
         logger.info(
             f"Conversation {conversation.id} {'created' if created else 'retrieved'} for users {request.user.id} and {seller.id}"
         )
+        logger.info(f"Conversation participants: {[p.id for p in conversation.participants.all()]}")
 
         # Don't show messages - just redirect directly to the conversation
         # This makes the Message Seller button open the chat directly
