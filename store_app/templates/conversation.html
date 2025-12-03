@@ -44,6 +44,23 @@
           <div
             class="d-flex mb-3 {% if message.sender == request.user %}justify-content-end{% else %}justify-content-start{% endif %}"
             data-message-id="{{ message.id }}">
+            {% if message.sender != request.user %}
+            <div class="me-2">
+              {% if message.sender.profile.profile_picture %}
+              <img src="/media/{{ message.sender.profile.profile_picture }}" 
+                class="rounded-circle" 
+                alt="Profile Picture" 
+                width="40" 
+                height="40" 
+                style="object-fit: cover;">
+              {% else %}
+              <div class="bg-secondary rounded-circle d-flex align-items-center justify-content-center"
+                style="width: 40px; height: 40px;">
+                <i class="bi bi-person-fill text-white"></i>
+              </div>
+              {% endif %}
+            </div>
+            {% endif %}
             <div
               class="{% if message.sender == request.user %}bg-primary text-white{% else %}bg-light text-dark{% endif %} rounded p-3"
               style="max-width: 70%; word-wrap: break-word; overflow-wrap: break-word;">
@@ -72,6 +89,23 @@
               {% endif %}
               <p class="mb-0">{{ message.content }}</p>
             </div>
+            {% if message.sender == request.user %}
+            <div class="ms-2">
+              {% if request.user.profile.profile_picture %}
+              <img src="/media/{{ request.user.profile.profile_picture }}" 
+                class="rounded-circle" 
+                alt="Profile Picture" 
+                width="40" 
+                height="40" 
+                style="object-fit: cover;">
+              {% else %}
+              <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center"
+                style="width: 40px; height: 40px;">
+                <i class="bi bi-person-fill text-white"></i>
+              </div>
+              {% endif %}
+            </div>
+            {% endif %}
           </div>
           {% endfor %}
           {% else %}
@@ -194,6 +228,33 @@
       messageDiv.setAttribute('data-message-id', messageData.id);
     }
 
+    // Add profile picture for other user (before message bubble)
+    if (!isCurrentUser) {
+      const profilePicDiv = document.createElement('div');
+      profilePicDiv.className = 'me-2';
+      
+      if (messageData.sender_profile_picture) {
+        const profileImg = document.createElement('img');
+        profileImg.src = `/media/${messageData.sender_profile_picture}`;
+        profileImg.className = 'rounded-circle';
+        profileImg.alt = 'Profile Picture';
+        profileImg.width = 40;
+        profileImg.height = 40;
+        profileImg.style.objectFit = 'cover';
+        profilePicDiv.appendChild(profileImg);
+      } else {
+        const defaultPic = document.createElement('div');
+        defaultPic.className = 'bg-secondary rounded-circle d-flex align-items-center justify-content-center';
+        defaultPic.style.width = '40px';
+        defaultPic.style.height = '40px';
+        const icon = document.createElement('i');
+        icon.className = 'bi bi-person-fill text-white';
+        defaultPic.appendChild(icon);
+        profilePicDiv.appendChild(defaultPic);
+      }
+      messageDiv.appendChild(profilePicDiv);
+    }
+
     const messageBubble = document.createElement('div');
     messageBubble.className = `${isCurrentUser ? 'bg-primary text-white' : 'bg-light text-dark'} rounded p-3`;
     messageBubble.style.maxWidth = '70%';
@@ -251,6 +312,33 @@
 
     messageBubble.appendChild(messageContent);
     messageDiv.appendChild(messageBubble);
+
+    // Add profile picture for current user (after message bubble)
+    if (isCurrentUser) {
+      const profilePicDiv = document.createElement('div');
+      profilePicDiv.className = 'ms-2';
+      
+      if (messageData.current_user_profile_picture) {
+        const profileImg = document.createElement('img');
+        profileImg.src = `/media/${messageData.current_user_profile_picture}`;
+        profileImg.className = 'rounded-circle';
+        profileImg.alt = 'Profile Picture';
+        profileImg.width = 40;
+        profileImg.height = 40;
+        profileImg.style.objectFit = 'cover';
+        profilePicDiv.appendChild(profileImg);
+      } else {
+        const defaultPic = document.createElement('div');
+        defaultPic.className = 'bg-primary rounded-circle d-flex align-items-center justify-content-center';
+        defaultPic.style.width = '40px';
+        defaultPic.style.height = '40px';
+        const icon = document.createElement('i');
+        icon.className = 'bi bi-person-fill text-white';
+        defaultPic.appendChild(icon);
+        profilePicDiv.appendChild(defaultPic);
+      }
+      messageDiv.appendChild(profilePicDiv);
+    }
 
     messagesContainer.appendChild(messageDiv);
 

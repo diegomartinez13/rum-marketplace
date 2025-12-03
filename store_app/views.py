@@ -720,6 +720,15 @@ def conversation_view(request, conversation_id):
                     "content": message.content,
                     "timestamp": message.created_at.strftime("%b %d, %Y %I:%M %p"),
                 }
+                # Add profile picture info
+                try:
+                    if hasattr(message.sender, "profile") and message.sender.profile.profile_picture:
+                        message_data["sender_profile_picture"] = str(message.sender.profile.profile_picture)
+                    if hasattr(request.user, "profile") and request.user.profile.profile_picture:
+                        message_data["current_user_profile_picture"] = str(request.user.profile.profile_picture)
+                except Exception as e:
+                    logger.warning(f"Error accessing profile picture: {str(e)}")
+                    pass
                 # Add product/service info if present (handle case where fields might not exist)
                 try:
                     if hasattr(message, "product") and message.product:
@@ -883,6 +892,15 @@ def get_new_messages(request, conversation_id):
             "content": message.content,
             "timestamp": message.created_at.strftime("%b %d, %Y %I:%M %p"),
         }
+        # Add profile picture info
+        try:
+            if hasattr(message.sender, "profile") and message.sender.profile.profile_picture:
+                message_data["sender_profile_picture"] = str(message.sender.profile.profile_picture)
+            if hasattr(request.user, "profile") and request.user.profile.profile_picture:
+                message_data["current_user_profile_picture"] = str(request.user.profile.profile_picture)
+        except Exception as e:
+            logger.warning(f"Error accessing profile picture in get_new_messages: {str(e)}")
+            pass
         # Add product/service info if present (handle case where fields might not exist)
         try:
             if hasattr(message, "product") and message.product:
@@ -997,6 +1015,15 @@ def get_conversations_update(request):
                     products_list = []
                     services_list = []
 
+                # Get profile picture for other participant
+                other_participant_profile_picture = None
+                try:
+                    if hasattr(other_participant, "profile") and other_participant.profile.profile_picture:
+                        other_participant_profile_picture = str(other_participant.profile.profile_picture)
+                except Exception as e:
+                    logger.warning(f"Error accessing profile picture for user {other_participant.id}: {str(e)}")
+                    pass
+
                 conversations_data.append(
                     {
                         "id": conv.id,
@@ -1010,6 +1037,7 @@ def get_conversations_update(request):
                             if other_participant
                             else "unknown"
                         ),
+                        "other_participant_profile_picture": other_participant_profile_picture,
                         "latest_message": (
                             {
                                 "content": (

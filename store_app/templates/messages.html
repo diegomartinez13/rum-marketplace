@@ -23,10 +23,19 @@
                 <div class="col-md-8">
                   <div class="d-flex align-items-center">
                     <div class="me-3">
+                      {% if conv_data.other_participant.profile.profile_picture %}
+                      <img src="/media/{{ conv_data.other_participant.profile.profile_picture }}" 
+                        class="rounded-circle" 
+                        alt="Profile Picture" 
+                        width="50" 
+                        height="50" 
+                        style="object-fit: cover;">
+                      {% else %}
                       <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center"
                         style="width: 50px; height: 50px;">
                         <i class="bi bi-person-fill text-white"></i>
                       </div>
+                      {% endif %}
                     </div>
                     <div>
                       <h5 class="card-title mb-1">
@@ -144,6 +153,46 @@
   function updateConversationCard(convData) {
     const cardElement = document.querySelector(`[data-conversation-id="${convData.id}"]`);
     if (!cardElement) return;
+    
+    // Update profile picture
+    const profilePicContainer = cardElement.querySelector('.me-3');
+    if (profilePicContainer) {
+      const existingImg = profilePicContainer.querySelector('img');
+      const existingDiv = profilePicContainer.querySelector('.bg-primary');
+      
+      if (convData.other_participant_profile_picture) {
+        // Remove existing elements
+        if (existingDiv) existingDiv.remove();
+        if (existingImg) {
+          existingImg.src = `/media/${convData.other_participant_profile_picture}`;
+        } else {
+          // Create new image
+          const img = document.createElement('img');
+          img.src = `/media/${convData.other_participant_profile_picture}`;
+          img.className = 'rounded-circle';
+          img.alt = 'Profile Picture';
+          img.width = 50;
+          img.height = 50;
+          img.style.objectFit = 'cover';
+          profilePicContainer.innerHTML = '';
+          profilePicContainer.appendChild(img);
+        }
+      } else {
+        // No profile picture, show default icon
+        if (existingImg) existingImg.remove();
+        if (!existingDiv) {
+          const defaultDiv = document.createElement('div');
+          defaultDiv.className = 'bg-primary rounded-circle d-flex align-items-center justify-content-center';
+          defaultDiv.style.width = '50px';
+          defaultDiv.style.height = '50px';
+          const icon = document.createElement('i');
+          icon.className = 'bi bi-person-fill text-white';
+          defaultDiv.appendChild(icon);
+          profilePicContainer.innerHTML = '';
+          profilePicContainer.appendChild(defaultDiv);
+        }
+      }
+    }
     
     // Update participant name
     const nameElement = cardElement.querySelector('.participant-name');
