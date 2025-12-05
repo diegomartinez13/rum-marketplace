@@ -447,3 +447,80 @@ def create_user_profile(sender, instance, created, **kwargs):
 def save_user_profile(sender, instance, **kwargs):
     if hasattr(instance, "profile"):
         instance.profile.save()
+
+
+class SellerRating(models.Model):
+    """
+    Rating model that connects to UserProfile (for sellers only)
+    """
+    # The seller being rated (must have is_seller=True)
+    seller = models.ForeignKey(
+        UserProfile, 
+        on_delete=models.SET_NULL,    # ← Preserve ratings if seller account is deleted
+        null=True,                    # ← Permit null if seller is deleted
+        blank=True,                   # ← Permit blank in forms
+        related_name='ratings_received',  # ← CREATES THE REVERSE RELATION
+        limit_choices_to={'is_seller': True}  # Only allow ratings for sellers
+    )
+    
+    # Reviewer details (for tracking even if account is deleted)
+    seller_was_deleted = models.BooleanField(default=False)
+    original_seller_email = models.EmailField(blank=True)
+    original_seller_name = models.CharField(max_length=255, blank=True)
+    
+    # Store reviewer email as primary identifier
+    reviewer_email = models.EmailField(db_index=True)
+    reviewer_name = models.CharField(max_length=150, blank=True)
+    
+    # Link to user if they exist (optional)
+    reviewer_user = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='reviews_given'
+    )
+    
+    # Rating details
+    score = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(5)]
+    )
+    review_text = models.TextField(blank=True)
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    # Tracking for deleted accounts
+    reviewer_account_deleted = models.BooleanField(default=False)
+    original_reviewer_id = models.IntegerField(null=True, blank=True)
+    
+    
+    def __str__(self):
+        return f"{self.reviewer_email} - {self.score}★ for {self.seller.user.username}"
+    
+    def save(self, *args, **kwargs):
+        # Store original seller info on first save
+        if self.seller and not self.original_seller_email:
+            self.original_seller_email = self.seller.user.email
+            self.original_seller_name = self.seller.user.get_full_name() or self.seller.user.username
+        
+        # Mark if the seller was deleted
+        if not self.seller and not self.seller_was_deleted:
+            self.seller_was_deleted = True
+            
+        super().save(*args, **kwargs)
+        
+    def get_seller_display_name(self):
+        """Get the display name of the seller, handling deleted accounts"""
+        if self.seller:
+            return self.seller.user.get_full_name() or self.seller.user.username
+        elif self.original_seller_name:
+            return f"{self.original_seller_name} (Deleted)"
+        else:
+            return "Unknown Seller"
+        
+    class Meta:
+        # Prevent duplicate ratings from same reviewer to same seller
+        unique_together = ['original_seller_email', 'reviewer_email']
+        ordering = ['-created_at']
