@@ -497,7 +497,8 @@ class SellerRating(models.Model):
     
     
     def __str__(self):
-        return f"{self.reviewer_email} - {self.score}★ for {self.seller.user.username}"
+        seller_name = self.original_seller_name or "Unknown Seller"
+        return f"{self.reviewer_email} - {self.score}★ for {seller_name}"
     
     def save(self, *args, **kwargs):
         # Store original seller info on first save
