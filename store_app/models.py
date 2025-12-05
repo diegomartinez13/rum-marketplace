@@ -520,6 +520,12 @@ class SellerRating(models.Model):
             return f"{self.original_seller_name} (Deleted)"
         else:
             return "Unknown Seller"
+
+    def get_reviewer_display_name(self):
+        """Get reviewer name for display, even if deleted"""
+        if self.reviewer_account_deleted:
+            return f"Deleted User ({self.reviewer_email})"
+        return self.reviewer_name or self.reviewer_email
         
     class Meta:
         # Prevent duplicate ratings from same reviewer to same seller
