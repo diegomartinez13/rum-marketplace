@@ -526,7 +526,7 @@ class SellerRating(models.Model):
         if self.reviewer_account_deleted:
             return f"Deleted User ({self.reviewer_email})"
         return self.reviewer_name or self.reviewer_email
-        
+
     class Meta:
         # Prevent duplicate ratings from same reviewer to same seller
         unique_together = ['original_seller_email', 'reviewer_email']
@@ -538,3 +538,22 @@ class SellerRating(models.Model):
             models.Index(fields=['original_seller_email']),
             models.Index(fields=['score', 'created_at']),
         ]
+
+class ReviewAuditLog(models.Model):
+    """Audit trail for all review changes"""
+    ACTION_CHOICES = [
+        ('created', 'Created'),
+        ('updated', 'Updated'),
+        ('user_deleted', 'User Deleted'),
+        ('reviewer_deleted', 'Reviewer Deleted'),
+    ]
+    
+    review = models.ForeignKey(SellerRating, on_delete=models.CASCADE, related_name='audit_logs')
+    action = models.CharField(max_length=50, choices=ACTION_CHOICES)
+    reviewer_email = models.EmailField(blank=True)
+    user_id = models.IntegerField(null=True, blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    metadata = models.JSONField(default=dict)
+    
+    def __str__(self):
+        return f"{self.action} - {self.timestamp.strftime('%Y-%m-%d %H:%M')}"
