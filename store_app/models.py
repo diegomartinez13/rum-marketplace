@@ -38,6 +38,53 @@ class UserProfile(models.Model):
         self.email_token = None
         self.email_token_expires_at = None
         self.save()
+        
+    
+    # Review system methods
+    
+    @property
+    def average_rating(self):
+        """Calculate average rating for this seller"""
+        if not self.is_seller:
+            return None
+        
+        # Use the ratings_received reverse relation
+        avg = self.ratings_received.aggregate(Avg('score'))['score__avg']
+        return round(avg, 2) if avg is not None else None
+    
+    @property
+    def total_ratings(self):
+        """Get total number of ratings received"""
+        if not self.is_seller:
+            return 0
+        return self.ratings_received.count()
+    
+    def get_rating_distribution(self):
+        """Get count of ratings for each star level"""
+        if not self.is_seller:
+            return {5: 0, 4: 0, 3: 0, 2: 0, 1: 0}
+        
+        distribution = {5: 0, 4: 0, 3: 0, 2: 0, 1: 0}
+        
+        # Using Django's ORM for efficiency
+        ratings_count = self.ratings_received.values('score').annotate(count=Count('id'))
+        
+        for item in ratings_count:
+            distribution[item['score']] = item['count']
+        
+        return distribution
+    
+    def get_rating_percentage(self, star_level):
+        """Get percentage of ratings for a specific star level"""
+        if not self.is_seller or star_level not in [1, 2, 3, 4, 5]:
+            return 0
+        
+        total = self.total_ratings
+        if total == 0:
+            return 0
+        
+        distribution = self.get_rating_distribution()
+        return (distribution[star_level] / total) * 100
 
 
 class ProductCategory(models.Model):
