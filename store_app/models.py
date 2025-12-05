@@ -524,3 +524,10 @@ class SellerRating(models.Model):
         # Prevent duplicate ratings from same reviewer to same seller
         unique_together = ['original_seller_email', 'reviewer_email']
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['seller', 'reviewer_email']),
+            models.Index(fields=['seller', '-created_at']),
+            models.Index(fields=['reviewer_email', '-created_at']),
+            models.Index(fields=['original_seller_email']),
+            models.Index(fields=['score', 'created_at']),
+        ]
