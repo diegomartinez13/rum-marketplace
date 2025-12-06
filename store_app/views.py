@@ -5,7 +5,6 @@ from django.http import Http404
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.views import View
-from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import Q
 from django.contrib.auth import authenticate, login, logout
@@ -17,9 +16,9 @@ from decimal import Decimal
 import logging
 from django.http import JsonResponse
 from datetime import timedelta
-from django.utils import timezone
 from django.utils.timesince import timesince
 from django.core.mail import send_mail
+from django.core.paginator import Paginator
 import secrets  # only if you still want a fallback; see note below
 
 from .forms import PreSignupForm
@@ -40,11 +39,14 @@ logger = logging.getLogger(__name__)
 
 
 def home(request):
-    newest_products = get_newest_products(request).get("products", [])
-    newest_services = get_newest_services(request).get("services", [])
+    products_qs = Product.objects.all().order_by("-id")
+    services_qs = Service.objects.all().order_by("-id")
 
-    products = Product.objects.all()
-    services = Service.objects.all()
+    product_page_number = request.GET.get("product_page")
+    service_page_number = request.GET.get("service_page")
+
+    products_page_obj = Paginator(products_qs, 12).get_page(product_page_number)
+    services_page_obj = Paginator(services_qs, 12).get_page(service_page_number)
 
     products_categories = ProductCategory.objects.all()
     services_categories = ServiceCategory.objects.all()
@@ -63,13 +65,11 @@ def home(request):
         )
 
     context = {
-        "newest_products": newest_products,
-        "newest_services": newest_services,
-        "products": products,
+        "products_page_obj": products_page_obj,
+        "services_page_obj": services_page_obj,
         "products_categories": products_categories,
         "services_categories": services_categories,
         "user": user,
-        "services": services,
         "unread_messages_count": unread_messages_count,
     }
     return render(request, "home.html", context)
@@ -335,22 +335,37 @@ def create_category(request):
 def search(request):
     query = request.GET.get("q", "")
     if query:
-        products = Product.objects.filter(
+        products_qs = Product.objects.filter(
             Q(name__icontains=query) | Q(description__icontains=query)
-        )
-        services = Service.objects.filter(
+        ).order_by("-id")
+        services_qs = Service.objects.filter(
             Q(name__icontains=query) | Q(description__icontains=query)
-        )
+        ).order_by("-id")
     else:
         messages.error(
             request, "Item not founds matching your search. Please try again."
         )
         return redirect("store_app:home")
 
+    product_page_number = request.GET.get("product_page")
+    service_page_number = request.GET.get("service_page")
+
+    products_page_obj = Paginator(products_qs, 12).get_page(product_page_number)
+    services_page_obj = Paginator(services_qs, 12).get_page(service_page_number)
+
+    products_categories = ProductCategory.objects.all()
+    services_categories = ServiceCategory.objects.all()
+
     return render(
         request,
         "home.html",
-        {"products": products, "services": services, "query": query},
+        {
+            "products_page_obj": products_page_obj,
+            "services_page_obj": services_page_obj,
+            "query": query,
+            "products_categories": products_categories,
+            "services_categories": services_categories,
+        },
     )
 
 
@@ -1191,8 +1206,14 @@ def profile(request):
     """Display and edit user profile"""
     user = request.user
     profile = user.profile  # type: ignore
-    products = Product.objects.filter(user_vendor=user)
-    services = Service.objects.filter(user_provider=user)
+    products = Product.objects.filter(user_vendor=user).order_by("-id")
+    services = Service.objects.filter(user_provider=user).order_by("-id")
+
+    products_page_number = request.GET.get("products_page")
+    services_page_number = request.GET.get("services_page")
+
+    user_products_page_obj = Paginator(products, 12).get_page(products_page_number)
+    user_services_page_obj = Paginator(services, 12).get_page(services_page_number)
 
     if request.method == "POST":
         """
@@ -1248,8 +1269,8 @@ def profile(request):
     context = {
         "user": user,
         "profile": profile,
-        "user_products": products,
-        "user_services": services,
+        "user_products_page_obj": user_products_page_obj,
+        "user_services_page_obj": user_services_page_obj,
     }
     return render(request, "profile.html", context)
 
@@ -1341,20 +1362,46 @@ def product_detail(request, product_id):
 
 def all_products(request):
     """Display all products"""
-    products = Product.objects.all()
+    products = Product.objects.all().order_by("-id")
+    category_slug = request.GET.get("category")
+    products_categories = ProductCategory.objects.all()
+    selected_category = None
+
+    if category_slug:
+        selected_category = get_object_or_404(ProductCategory, slug=category_slug)
+        products = products.filter(category=selected_category)
+
+    page_number = request.GET.get("page")
+    products_page_obj = Paginator(products, 12).get_page(page_number)
     context = {
-        "products": products,
+        "products_page_obj": products_page_obj,
         "user": request.user,
+        "products_categories": products_categories,
+        "services_categories": ServiceCategory.objects.all(),
+        "selected_category": selected_category,
     }
     return render(request, "all_products.html", context)
 
 
 def all_services(request):
     """Display all services"""
-    services = Service.objects.all()
+    services = Service.objects.all().order_by("-id")
+    category_slug = request.GET.get("category")
+    services_categories = ServiceCategory.objects.all()
+    selected_category = None
+
+    if category_slug:
+        selected_category = get_object_or_404(ServiceCategory, slug=category_slug)
+        services = services.filter(category=selected_category)
+
+    page_number = request.GET.get("page")
+    services_page_obj = Paginator(services, 12).get_page(page_number)
     context = {
-        "services": services,
+        "services_page_obj": services_page_obj,
         "user": request.user,
+        "products_categories": ProductCategory.objects.all(),
+        "services_categories": services_categories,
+        "selected_category": selected_category,
     }
     return render(request, "all_services.html", context)
 
