@@ -36,6 +36,11 @@ from .models import (
 )
 from .tokens import new_email_token
 
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST, require_GET
+from .utils.review_utils import *
+from django.db.models import Avg, Count
+
 logger = logging.getLogger(__name__)
 
 
@@ -1387,3 +1392,267 @@ def custom_page_not_found(request, exception):
         },
         status=404,
     )
+
+
+@require_POST
+@csrf_exempt
+def submit_review_api(request):
+    """
+    Submit a review for a seller
+    """
+    try:
+        data = json.loads(request.body)
+        
+        # Extract data
+        seller_id = data.get('seller_id')
+        reviewer_email = data.get('reviewer_email', '').strip().lower()
+        score = int(data.get('score', 0))
+        review_text = data.get('review_text', '')
+        reviewer_name = data.get('reviewer_name', '')
+        
+        # Validate
+        if not seller_id:
+            return JsonResponse({'success': False, 'error': 'Seller ID is required'}, status=400)
+        
+        try:
+            validate_email(reviewer_email)
+        except ValidationError:
+            return JsonResponse({'success': False, 'error': 'Invalid email address'}, status=400)
+        
+        if not 1 <= score <= 5:
+            return JsonResponse({'success': False, 'error': 'Score must be between 1 and 5'}, status=400)
+        
+        # Submit rating
+        review, created = submit_rating_for_seller(
+            seller_profile_id=seller_id,
+            reviewer_email=reviewer_email,
+            score=score,
+            review_text=review_text,
+            reviewer_name=reviewer_name
+        )
+        
+        # Get updated stats
+        seller_profile = review.seller
+        stats = get_seller_stats(seller_profile)
+        
+        return JsonResponse({
+            'success': True,
+            'created': created,
+            'review': {
+                'id': review.id,
+                'reviewer_email': review.reviewer_email,
+                'reviewer_name': review.reviewer_name,
+                'score': review.score,
+                'review_text': review.review_text,
+                'created_at': review.created_at.isoformat()
+            },
+            'stats': stats,
+            'seller': {
+                'id': seller_profile.id,
+                'username': seller_profile.user.username,
+                'email': seller_profile.user.email,
+                'store_name': seller_profile.user.get_full_name() or seller_profile.user.username
+            }
+        })
+        
+    except ValueError as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=404)
+    except Exception as e:
+        logger.error(f"API error: {str(e)}")
+        return JsonResponse({'success': False, 'error': 'Internal server error'}, status=500)
+
+@require_GET
+def get_seller_reviews_api(request, seller_id):
+    """
+    Get all reviews for a seller
+    """
+    try:
+        seller_profile = get_object_or_404(UserProfile, id=seller_id, is_seller=True)
+        
+        # Get pagination parameters
+        page = int(request.GET.get('page', 1))
+        limit = int(request.GET.get('limit', 10))
+        offset = (page - 1) * limit
+        
+        # Get reviews
+        reviews = seller_profile.ratings_received.select_related(
+            'reviewer_user'
+        ).order_by('-created_at')[offset:offset + limit]
+        
+        reviews_data = []
+        for review in reviews:
+            reviews_data.append({
+                'id': review.id,
+                'reviewer_email': review.reviewer_email,
+                'reviewer_name': review.reviewer_name,
+                'score': review.score,
+                'review_text': review.review_text,
+                'created_at': review.created_at.isoformat(),
+                'updated_at': review.updated_at.isoformat(),
+                'is_verified_reviewer': review.reviewer_user is not None,
+                'reviewer_account_deleted': review.reviewer_account_deleted,
+                'can_edit': (
+                    request.user.is_authenticated and 
+                    review.reviewer_user == request.user
+                )
+            })
+        
+        # Get stats
+        stats = get_seller_stats(seller_profile)
+        
+        return JsonResponse({
+            'success': True,
+            'seller': {
+                'id': seller_profile.id,
+                'username': seller_profile.user.username,
+                'email': seller_profile.user.email,
+                'description': seller_profile.description,
+                'profile_picture': seller_profile.profile_picture.url if seller_profile.profile_picture else None
+            },
+            'stats': stats,
+            'reviews': reviews_data,
+            'pagination': {
+                'page': page,
+                'limit': limit,
+                'total': stats['total_ratings'],
+                'has_more': (offset + limit) < stats['total_ratings']
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting reviews: {str(e)}")
+        return JsonResponse({'success': False, 'error': 'Internal server error'}, status=500)
+
+@require_GET
+def check_existing_review_api(request):
+    """
+    Check if user has already reviewed a seller
+    """
+    seller_id = request.GET.get('seller_id')
+    reviewer_email = request.GET.get('reviewer_email', '').strip().lower()
+    
+    if not seller_id or not reviewer_email:
+        return JsonResponse({'exists': False})
+    
+    try:
+        seller_profile = UserProfile.objects.get(id=seller_id, is_seller=True)
+        review = SellerRating.objects.filter(
+            seller=seller_profile,
+            reviewer_email=reviewer_email
+        ).first()
+        
+        if review:
+            return JsonResponse({
+                'exists': True,
+                'review': {
+                    'id': review.id,
+                    'score': review.score,
+                    'review_text': review.review_text,
+                    'created_at': review.created_at.isoformat()
+                }
+            })
+        
+        return JsonResponse({'exists': False})
+        
+    except UserProfile.DoesNotExist:
+        return JsonResponse({'exists': False})
+    except Exception as e:
+        logger.error(f"Error checking review: {str(e)}")
+        return JsonResponse({'exists': False})
+
+def seller_public_profile(request, seller_id):
+    """
+    Render HTML public profile page for a seller
+    """
+    try:
+        # Get the seller profile
+        seller_profile = get_object_or_404(
+            UserProfile, 
+            id=seller_id, 
+            is_seller=True
+        )
+        if seller_profile == Http404:
+          raise ValueError("Seller profile not found")
+        
+        # Get rating statistics
+        stats = get_seller_stats(seller_profile)
+        
+        # Get recent reviews
+        recent_reviews = seller_profile.ratings_received.select_related(
+            'reviewer_user'
+        ).order_by('-created_at')[:10]
+        
+        # Get rating distribution
+        distribution = {}
+        total_ratings = stats['total_ratings']
+        
+        if total_ratings > 0:
+            for i in range(5, 0, -1):  # 5 to 1
+                count = seller_profile.ratings_received.filter(score=i).count()
+                distribution[i] = {
+                    'count': count,
+                    'percentage': round((count / total_ratings) * 100, 1)
+                }
+        
+        # Check if current user has already reviewed
+        user_has_reviewed = False
+        user_review = None
+        
+        if request.user.is_authenticated:
+            user_review = seller_profile.ratings_received.filter(
+                reviewer_email=request.user.email
+            ).first()
+            user_has_reviewed = user_review is not None
+        
+        # Get seller's products and services (if your app has these models)
+        user_products = []
+        user_services = []
+        
+        try:
+            # Assuming you have Product and Service models
+            from your_app.models import Product, Service
+            
+            user_products = Product.objects.filter(
+                user=seller_profile.user,
+                is_active=True
+            )[:6]  # Limit to 6 products
+            
+            if seller_profile.provides_service:
+                user_services = Service.objects.filter(
+                    user=seller_profile.user,
+                    is_active=True
+                )[:6]  # Limit to 6 services
+        except ImportError:
+            # If you don't have these models, just pass empty lists
+            pass
+        
+        context = {
+            'seller_profile': seller_profile,
+            'stats': stats,
+            'recent_reviews': recent_reviews,
+            'rating_distribution': distribution,
+            'user_has_reviewed': user_has_reviewed,
+            'user_review': user_review,
+            'user_products': user_products,
+            'user_services': user_services,
+            'is_owner': request.user == seller_profile.user,
+        }
+        
+        return render(request, 'seller_public_profile.html', context)
+        
+    except Exception as e:
+        logger.error(f"Error loading seller profile {seller_id}: {str(e)}")
+        
+        # Get some featured sellers to recommend
+        featured_sellers = UserProfile.objects.filter(
+            is_seller=True,
+            pending_email_verification=False
+        ).annotate(
+            avg_rating=Avg('ratings_received__score'),
+            review_count=Count('ratings_received')
+        ).order_by('-avg_rating', '-review_count')[:3]
+        
+        return render(request, 'seller_not_found.html', {
+            'seller_id': seller_id,
+            'featured_sellers': featured_sellers
+        })

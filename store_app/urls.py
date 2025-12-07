@@ -34,4 +34,8 @@ urlpatterns = [
     # path("service/<int:service_id>/", views.service_detail, name="service_detail"),
     path("all-products/", views.all_products, name="all_products"),
     path("all-services/", views.all_services, name="all_services"),
+    
+    path('seller/<int:seller_id>/', views.seller_public_profile, name='seller_public_profile'),
+    path('api/reviews/submit/', views.submit_review_api, name='submit_review_api'),
+    path('api/seller/<int:seller_id>/reviews/', views.get_seller_reviews_api, name='get_seller_reviews_api'),
 ]

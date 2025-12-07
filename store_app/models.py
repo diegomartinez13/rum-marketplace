@@ -466,7 +466,6 @@ class SellerRating(models.Model):
     # Reviewer details (for tracking even if account is deleted)
     seller_was_deleted = models.BooleanField(default=False)
     original_seller_email = models.EmailField(blank=True)
-    original_seller_name = models.CharField(max_length=255, blank=True)
     
     # Store reviewer email as primary identifier
     reviewer_email = models.EmailField(db_index=True)
@@ -504,7 +503,6 @@ class SellerRating(models.Model):
         # Store original seller info on first save
         if self.seller and not self.original_seller_email:
             self.original_seller_email = self.seller.user.email
-            self.original_seller_name = self.seller.user.get_full_name() or self.seller.user.username
         
         # Mark if the seller was deleted
         if not self.seller and not self.seller_was_deleted:
@@ -531,29 +529,3 @@ class SellerRating(models.Model):
         # Prevent duplicate ratings from same reviewer to same seller
         unique_together = ['original_seller_email', 'reviewer_email']
         ordering = ['-created_at']
-        indexes = [
-            models.Index(fields=['seller', 'reviewer_email']),
-            models.Index(fields=['seller', '-created_at']),
-            models.Index(fields=['reviewer_email', '-created_at']),
-            models.Index(fields=['original_seller_email']),
-            models.Index(fields=['score', 'created_at']),
-        ]
-
-class ReviewAuditLog(models.Model):
-    """Audit trail for all review changes"""
-    ACTION_CHOICES = [
-        ('created', 'Created'),
-        ('updated', 'Updated'),
-        ('user_deleted', 'User Deleted'),
-        ('reviewer_deleted', 'Reviewer Deleted'),
-    ]
-    
-    review = models.ForeignKey(SellerRating, on_delete=models.CASCADE, related_name='audit_logs')
-    action = models.CharField(max_length=50, choices=ACTION_CHOICES)
-    reviewer_email = models.EmailField(blank=True)
-    user_id = models.IntegerField(null=True, blank=True)
-    timestamp = models.DateTimeField(auto_now_add=True)
-    metadata = models.JSONField(default=dict)
-    
-    def __str__(self):
-        return f"{self.action} - {self.timestamp.strftime('%Y-%m-%d %H:%M')}"
