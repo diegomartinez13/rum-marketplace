@@ -22,7 +22,7 @@
       <p class="lead fw-bold mb-0" style="color: green;">Buy, sell, and explore products from students on campus</p>
     </div>
     {% if ads %}
-    <div class="ad-carousel shadow-sm rounded-4 bg-white mt-4">
+    <div class="ad-carousel">
       <div class="ad-track-wrapper">
         <div class="ad-track">
           {% for ad in ads %}
@@ -210,7 +210,7 @@
   .ad-carousel {
     position: relative;
     overflow: hidden;
-    padding: 1rem;
+    padding: 0;
   }
 
   .ad-track-wrapper {
@@ -234,7 +234,7 @@
     min-height: 180px;
     border-radius: 1.25rem;
     overflow: hidden;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    box-shadow: none;
   }
 
   .ad-media img {
@@ -248,7 +248,7 @@
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
-    background: rgba(0, 0, 0, 0.4);
+    background: rgba(0, 0, 0, 0.35);
     color: #fff;
     border: none;
     width: 42px;
@@ -442,6 +442,15 @@
         autoTimer = setInterval(() => goTo(currentIndex + 1), 5000);
       }
     }
+
+    // Pause on hover to avoid motion while cursor is over the image
+    track.addEventListener('mouseenter', () => {
+      if (autoTimer) {
+        clearInterval(autoTimer);
+        autoTimer = null;
+      }
+    });
+    track.addEventListener('mouseleave', resetAuto);
 
     if (cards.length === 1) {
       if (prevBtn) prevBtn.style.display = 'none';
