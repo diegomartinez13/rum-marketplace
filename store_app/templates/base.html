@@ -62,14 +62,14 @@
               </li>
               <li><p class="dropdown-header">Products</p></li>
               {% for category in products_categories %}
-              <li><a class="dropdown-item" href="#">{{ category.name }}</a></li>
+              <li><a class="dropdown-item" href="{% url 'store_app:all_products' %}?category={{ category.slug }}">{{ category.name }}</a></li>
               {% endfor %}
               <li>
                 <hr class="dropdown-divider" />
               </li>
               <li><p class="dropdown-header">Services</p></li>
               {% for category in services_categories %}
-              <li><a class="dropdown-item" href="#">{{ category }}</a></li>
+              <li><a class="dropdown-item" href="{% url 'store_app:all_services' %}?category={{ category.slug }}">{{ category.name }}</a></li>
               {% endfor %}
               <li>
                 <hr class="dropdown-divider" />

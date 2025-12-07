@@ -82,7 +82,8 @@
   <h3 class="mb-4">Your Listings</h3>
   <div class="row">
     <h4 class="mb-3">Products</h4>
-    {% for product in user_products %}
+    {% if user_products_page_obj.object_list %}
+    {% for product in user_products_page_obj %}
     <div class="col-md-4 mb-4">
       <div class="card">
         {% if product.primary_image %}
@@ -111,13 +112,38 @@
         </div>
       </div>
     </div>
-    {% empty %}
-    <p>You have no product listings.</p>
     {% endfor %}
+    {% else %}
+    <p>You have no product listings.</p>
+    {% endif %}
   </div>
+  {% if user_products_page_obj.has_other_pages %}
+  <nav aria-label="User products pagination">
+    <ul class="pagination justify-content-center">
+      {% if user_products_page_obj.has_previous %}
+      <li class="page-item">
+        <a class="page-link" href="?products_page={{ user_products_page_obj.previous_page_number }}{% if user_services_page_obj.number %}&services_page={{ user_services_page_obj.number }}{% endif %}">Previous</a>
+      </li>
+      {% else %}
+      <li class="page-item disabled"><span class="page-link">Previous</span></li>
+      {% endif %}
+      <li class="page-item disabled">
+        <span class="page-link">Page {{ user_products_page_obj.number }} of {{ user_products_page_obj.paginator.num_pages }}</span>
+      </li>
+      {% if user_products_page_obj.has_next %}
+      <li class="page-item">
+        <a class="page-link" href="?products_page={{ user_products_page_obj.next_page_number }}{% if user_services_page_obj.number %}&services_page={{ user_services_page_obj.number }}{% endif %}">Next</a>
+      </li>
+      {% else %}
+      <li class="page-item disabled"><span class="page-link">Next</span></li>
+      {% endif %}
+    </ul>
+  </nav>
+  {% endif %}
   <div class="row mt-4">
     <h4 class="mb-3">Services</h4>
-    {% for service in user_services %}
+    {% if user_services_page_obj.object_list %}
+    {% for service in user_services_page_obj %}
     <div class="col-md-4 mb-4">
       <div class="card">
         <div class="card-body">
@@ -138,8 +164,32 @@
         </div>
       </div>
     </div>
-    {% empty %}
-    <p>You have no service listings.</p>
     {% endfor %}
+    {% else %}
+    <p>You have no service listings.</p>
+    {% endif %}
   </div>
+  {% if user_services_page_obj.has_other_pages %}
+  <nav aria-label="User services pagination">
+    <ul class="pagination justify-content-center">
+      {% if user_services_page_obj.has_previous %}
+      <li class="page-item">
+        <a class="page-link" href="?services_page={{ user_services_page_obj.previous_page_number }}{% if user_products_page_obj.number %}&products_page={{ user_products_page_obj.number }}{% endif %}">Previous</a>
+      </li>
+      {% else %}
+      <li class="page-item disabled"><span class="page-link">Previous</span></li>
+      {% endif %}
+      <li class="page-item disabled">
+        <span class="page-link">Page {{ user_services_page_obj.number }} of {{ user_services_page_obj.paginator.num_pages }}</span>
+      </li>
+      {% if user_services_page_obj.has_next %}
+      <li class="page-item">
+        <a class="page-link" href="?services_page={{ user_services_page_obj.next_page_number }}{% if user_products_page_obj.number %}&products_page={{ user_products_page_obj.number }}{% endif %}">Next</a>
+      </li>
+      {% else %}
+      <li class="page-item disabled"><span class="page-link">Next</span></li>
+      {% endif %}
+    </ul>
+  </nav>
+  {% endif %}
   {% endblock %}

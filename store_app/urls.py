@@ -34,4 +34,9 @@ urlpatterns = [
     # path("service/<int:service_id>/", views.service_detail, name="service_detail"),
     path("all-products/", views.all_products, name="all_products"),
     path("all-services/", views.all_services, name="all_services"),
+    path(
+        "terms/",
+        TemplateView.as_view(template_name="terms_and_conditions.html"),
+        name="terms",
+    ),
 ]
