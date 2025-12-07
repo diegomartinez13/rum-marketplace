@@ -242,8 +242,8 @@
   }
 
   .ad-media img {
-    width: 100%;
-    height: 100%;
+    width: 150%;
+    height: 150%;
     object-fit: contain;
     background: #f8f9fa;
     display: block;
@@ -427,7 +427,7 @@
     function resetAuto() {
       if (autoTimer) clearInterval(autoTimer);
       if (cards.length > 1) {
-        autoTimer = setInterval(next, 5000);
+        autoTimer = setInterval(next, 8000);
       }
     }
 
