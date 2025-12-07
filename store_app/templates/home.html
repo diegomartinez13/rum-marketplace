@@ -210,7 +210,7 @@
   .ad-carousel {
     position: relative;
     overflow: hidden;
-    padding: 1.5rem;
+    padding: 1rem;
   }
 
   .ad-track-wrapper {
@@ -231,7 +231,7 @@
   .ad-media {
     position: relative;
     width: 100%;
-    min-height: 220px;
+    min-height: 180px;
     border-radius: 1.25rem;
     overflow: hidden;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
@@ -274,26 +274,14 @@
   }
 
   @media (min-width: 768px) {
-    .ad-card {
-      flex: 0 0 85%;
-    }
-
     .ad-media {
-      min-height: 260px;
+      min-height: 200px;
     }
   }
 
   @media (min-width: 992px) {
     .ad-carousel {
       padding-inline: 2rem;
-    }
-
-    .ad-card {
-      flex: 0 0 75%;
-    }
-
-    .ad-track-wrapper {
-      overflow: visible;
     }
   }
 
@@ -418,26 +406,16 @@
     const nextBtn = document.querySelector('.ad-next');
     const gap = 16;
     let currentIndex = 0;
-    let slidesToShow = 1;
     let autoTimer = null;
 
     if (!track || !cards.length) {
       return;
     }
 
-    function calculateSlidesToShow() {
-      if (window.innerWidth >= 1200) return 1.5;
-      if (window.innerWidth >= 992) return 1.25;
-      if (window.innerWidth >= 768) return 1.05;
-      return 1;
-    }
-
     function layout() {
-      slidesToShow = calculateSlidesToShow();
       const wrapper = track.parentElement;
       const wrapperWidth = wrapper.getBoundingClientRect().width;
-      const cardWidth =
-        (wrapperWidth - gap * (slidesToShow - 1)) / slidesToShow;
+      const cardWidth = wrapperWidth;
       cards.forEach((card) => {
         card.style.width = `${cardWidth}px`;
       });
@@ -460,11 +438,19 @@
 
     function resetAuto() {
       if (autoTimer) clearInterval(autoTimer);
-      autoTimer = setInterval(() => goTo(currentIndex + 1), 5000);
+      if (cards.length > 1) {
+        autoTimer = setInterval(() => goTo(currentIndex + 1), 5000);
+      }
     }
 
-    prevBtn?.addEventListener('click', () => goTo(currentIndex - 1));
-    nextBtn?.addEventListener('click', () => goTo(currentIndex + 1));
+    if (cards.length === 1) {
+      if (prevBtn) prevBtn.style.display = 'none';
+      if (nextBtn) nextBtn.style.display = 'none';
+    } else {
+      prevBtn?.addEventListener('click', () => goTo(currentIndex - 1));
+      nextBtn?.addEventListener('click', () => goTo(currentIndex + 1));
+    }
+
     window.addEventListener('resize', () => {
       layout();
     });
