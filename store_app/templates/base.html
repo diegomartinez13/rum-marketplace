@@ -4,6 +4,18 @@
 <html lang="en" data-bs-theme="light">
 
 <head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-QTZNVRESGN"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-QTZNVRESGN');
+  </script>
+
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7946045188653475" crossorigin="anonymous"></script>
+  
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
   <meta name="description" content="" />
@@ -50,14 +62,14 @@
               </li>
               <li><p class="dropdown-header">Products</p></li>
               {% for category in products_categories %}
-              <li><a class="dropdown-item" href="#">{{ category.name }}</a></li>
+              <li><a class="dropdown-item" href="{% url 'store_app:all_products' %}?category={{ category.slug }}">{{ category.name }}</a></li>
               {% endfor %}
               <li>
                 <hr class="dropdown-divider" />
               </li>
               <li><p class="dropdown-header">Services</p></li>
               {% for category in services_categories %}
-              <li><a class="dropdown-item" href="#">{{ category }}</a></li>
+              <li><a class="dropdown-item" href="{% url 'store_app:all_services' %}?category={{ category.slug }}">{{ category.name }}</a></li>
               {% endfor %}
               <li>
                 <hr class="dropdown-divider" />

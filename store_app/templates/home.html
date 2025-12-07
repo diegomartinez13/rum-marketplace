@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block content %}
 <!-- Display messages -->
@@ -13,22 +14,38 @@
 {% endfor %}
 {% endif %}
 
-<!-- Header-->
-<header class="py-5" style="background-color: ghostwhite;">
-  <div class="container-fluid align-items-center justify-content-center">
-    <div class="text-center text-dark">
-      <h1 class="display-4 fw-bolder" style="color:green">Welcome to RUM Marketplace</h1>
-      <p class="lead fw-bold mb-0" style="color: green;">Buy, sell, and explore products from students on campus</p>
+<!-- Ads -->
+{% if ads %}
+<div class="container mt-4">
+  <div class="ad-carousel">
+    <div class="ad-track-wrapper">
+      <div class="ad-track">
+        {% for ad in ads %}
+        <div class="ad-card{% if forloop.first %} is-active{% endif %}">
+          <div class="ad-media">
+            <img src="{{ ad.url }}" alt="Marketplace ad {{ forloop.counter }}" loading="lazy">
+          </div>
+        </div>
+        {% endfor %}
+      </div>
     </div>
+    {% if ads|length > 1 %}
+    <div class="ad-dots">
+      {% for ad in ads %}
+      <button class="ad-dot{% if forloop.first %} is-active{% endif %}" type="button" aria-label="Go to ad {{ forloop.counter }}"></button>
+      {% endfor %}
+    </div>
+    {% endif %}
   </div>
-</header>
+</div>
+{% endif %}
 
 <!-- Product Display -->
-{% if products%}
 <div class="container mt-4">
-  <h2 class="mb-4">New Products</h2>
+  <h2 class="mb-4">Products</h2>
+  {% if products_page_obj.object_list %}
   <div class="row">
-    {% for product in newest_products %}
+    {% for product in products_page_obj %}
     <div class="col-md-4 mb-4">
       <div class="card shadow-sm position-relative">
         {% if product.sold_out %}
@@ -70,23 +87,43 @@
       </div>
     </div>
     {% endfor %}
-    {% if products|length > 5 %}
-    <div class="col-md-4 mb-4">
-      <div class="d-flex justify-content-center mt-4 align-items-center h-100">
-        <a href="{% url 'store_app:all_products' %}" class="btn btn-lg btn-outline-success">View All Products</a>
-      </div>
-    </div>
-    {% endif %}
   </div>
+  {% else %}
+  <p class="text-center">No products available.</p>
+  {% endif %}
+  {% if products_page_obj.has_other_pages %}
+  <nav aria-label="Products pagination">
+    <ul class="pagination justify-content-center">
+      {% if products_page_obj.has_previous %}
+      <li class="page-item">
+        <a class="page-link"
+          href="?product_page={{ products_page_obj.previous_page_number }}{% if services_page_obj.number %}&service_page={{ services_page_obj.number }}{% endif %}{% if query %}&q={{ query }}{% endif %}">Previous</a>
+      </li>
+      {% else %}
+      <li class="page-item disabled"><span class="page-link">Previous</span></li>
+      {% endif %}
+      <li class="page-item disabled">
+        <span class="page-link">Page {{ products_page_obj.number }} of {{ products_page_obj.paginator.num_pages }}</span>
+      </li>
+      {% if products_page_obj.has_next %}
+      <li class="page-item">
+        <a class="page-link"
+          href="?product_page={{ products_page_obj.next_page_number }}{% if services_page_obj.number %}&service_page={{ services_page_obj.number }}{% endif %}{% if query %}&q={{ query }}{% endif %}">Next</a>
+      </li>
+      {% else %}
+      <li class="page-item disabled"><span class="page-link">Next</span></li>
+      {% endif %}
+    </ul>
+  </nav>
+  {% endif %}
 </div>
-{% endif %}
 
 <!-- Service Display -->
-{% if services %}
 <div class="container mt-4">
-  <h2 class="mb-4">New Services</h2>
+  <h2 class="mb-4">Services</h2>
+  {% if services_page_obj.object_list %}
   <div class="row">
-    {% for service in newest_services %}
+    {% for service in services_page_obj %}
     <div class="col-md-4 mb-4">
       <div class="card position-relative">
         {% if service.sold_out %}
@@ -120,16 +157,36 @@
       </div>
     </div>
     {% endfor %}
-    {% if services|length > 5 %}
-    <div class="col-md-4 mb-4">
-      <div class="d-flex justify-content-center mt-4 align-items-center h-100">
-        <a href="{% url 'store_app:all_services' %}" class="btn btn-lg btn-outline-success">View All Services</a>
-      </div>
-    </div>
-    {% endif %}
   </div>
+  {% else %}
+  <p class="text-center">No services available.</p>
+  {% endif %}
+  {% if services_page_obj.has_other_pages %}
+  <nav aria-label="Services pagination">
+    <ul class="pagination justify-content-center">
+      {% if services_page_obj.has_previous %}
+      <li class="page-item">
+        <a class="page-link"
+          href="?service_page={{ services_page_obj.previous_page_number }}{% if products_page_obj.number %}&product_page={{ products_page_obj.number }}{% endif %}{% if query %}&q={{ query }}{% endif %}">Previous</a>
+      </li>
+      {% else %}
+      <li class="page-item disabled"><span class="page-link">Previous</span></li>
+      {% endif %}
+      <li class="page-item disabled">
+        <span class="page-link">Page {{ services_page_obj.number }} of {{ services_page_obj.paginator.num_pages }}</span>
+      </li>
+      {% if services_page_obj.has_next %}
+      <li class="page-item">
+        <a class="page-link"
+          href="?service_page={{ services_page_obj.next_page_number }}{% if products_page_obj.number %}&product_page={{ products_page_obj.number }}{% endif %}{% if query %}&q={{ query }}{% endif %}">Next</a>
+      </li>
+      {% else %}
+      <li class="page-item disabled"><span class="page-link">Next</span></li>
+      {% endif %}
+    </ul>
+  </nav>
+  {% endif %}
 </div>
-{% endif %}
 
 {% if user.is_authenticated %}
 <!-- Floating Add Listing Button -->
@@ -154,6 +211,91 @@
 
 
 <style>
+  .ad-carousel {
+    position: relative;
+    overflow: hidden;
+    padding: 0;
+    margin-top: 1.5rem;
+  }
+
+  .ad-track-wrapper {
+    overflow: hidden;
+  }
+
+  .ad-track {
+    position: relative;
+    min-height: 260px;
+  }
+
+  .ad-card {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    display: flex;
+    justify-content: center;
+  }
+
+  .ad-card.is-active {
+    opacity: 1;
+    z-index: 1;
+  }
+
+  .ad-media {
+    position: relative;
+    width: 150%;
+    height: 260px;
+    border-radius: 1.25rem;
+    overflow: hidden;
+    box-shadow: none;
+  }
+
+  .ad-media img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #f8f9fa;
+    display: block;
+  }
+
+  .ad-dots {
+    display: flex;
+    justify-content: center;
+    gap: 0.6rem;
+    padding-top: 0.75rem;
+  }
+
+  .ad-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid #198754;
+    background: #fff;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.2s ease;
+  }
+
+  .ad-dot.is-active {
+    background: #198754;
+    transform: scale(1.05);
+  }
+
+  @media (min-width: 768px) {
+    .ad-media {
+      height: 320px;
+    }
+  }
+
+  @media (min-width: 992px) {
+    .ad-carousel {
+      padding-inline: 2rem;
+    }
+
+    .ad-media {
+      height: 320px;
+    }
+  }
+
   .floating-add-button {
     position: fixed;
     bottom: 4vw;
@@ -266,6 +408,59 @@
     }
   }
 </style>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const track = document.querySelector('.ad-track');
+    const cards = track ? Array.from(track.children) : [];
+    const dots = Array.from(document.querySelectorAll('.ad-dot'));
+    let currentIndex = 0;
+    let autoTimer = null;
+
+    if (!track || !cards.length) return;
+
+    function setActive(index) {
+      currentIndex = (index + cards.length) % cards.length;
+      cards.forEach((card, i) => {
+        card.classList.toggle('is-active', i === currentIndex);
+      });
+      dots.forEach((dot, i) => {
+        dot.classList.toggle('is-active', i === currentIndex);
+      });
+    }
+
+    function next() {
+      setActive(currentIndex + 1);
+    }
+
+    function resetAuto() {
+      if (autoTimer) clearInterval(autoTimer);
+      if (cards.length > 1) {
+        autoTimer = setInterval(next, 8000);
+      }
+    }
+
+    // Pause on hover
+    track.addEventListener('mouseenter', () => {
+      if (autoTimer) {
+        clearInterval(autoTimer);
+        autoTimer = null;
+      }
+    });
+    track.addEventListener('mouseleave', resetAuto);
+
+    // Dots navigation
+    dots.forEach((dot, i) => {
+      dot.addEventListener('click', () => {
+        setActive(i);
+        resetAuto();
+      });
+    });
+
+    setActive(0);
+    resetAuto();
+  });
+</script>
 
 {% if user.is_authenticated %}
 <script>
