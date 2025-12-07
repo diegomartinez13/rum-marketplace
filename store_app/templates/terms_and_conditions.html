@@ -44,10 +44,30 @@
             border: none;
             border-top: 1px solid #ddd;
         }
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #10451d;
+            text-decoration: none;
+            font-weight: 600;
+            border: 1px solid #10451d;
+            padding: 0.45rem 0.85rem;
+            border-radius: 6px;
+            background: #e9f7ee;
+        }
+        .back-link:hover {
+            background: #d9f0e1;
+        }
     </style>
 </head>
 <body>
     <main class="tc-container">
+        <div style="margin-bottom: 1rem; display: flex; justify-content: flex-start;">
+            <a href="{% url 'store_app:signup' %}" class="back-link" id="backToSignup">
+                &#8592; Back to Sign Up
+            </a>
+        </div>
         <header>
             <h1>RUM Marketplace – Terms &amp; Conditions</h1>
             <p class="tc-meta">Last Updated: <!-- Replace with server date or static date --> December 7, 2025</p>
@@ -345,5 +365,18 @@
             </p>
         </section>
     </main>
+    <script>
+        (function() {
+            const backLink = document.getElementById('backToSignup');
+            if (!backLink) return;
+            backLink.addEventListener('click', function (e) {
+                // If there is history to go back to, prefer that; otherwise fall back to the signup page.
+                if (window.history.length > 1) {
+                    e.preventDefault();
+                    window.history.back();
+                }
+            });
+        })();
+    </script>
 </body>
 </html>
