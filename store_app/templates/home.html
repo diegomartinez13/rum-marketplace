@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load static %}
 
 {% block content %}
 <!-- Display messages -->
@@ -20,6 +21,27 @@
       <h1 class="display-4 fw-bolder" style="color:green">Welcome to RUM Marketplace</h1>
       <p class="lead fw-bold mb-0" style="color: green;">Buy, sell, and explore products from students on campus</p>
     </div>
+    {% if ads %}
+    <div class="ad-carousel shadow-sm rounded-4 bg-white mt-4">
+      <div class="ad-track-wrapper">
+        <div class="ad-track">
+          {% for ad in ads %}
+          <div class="ad-card">
+            <div class="ad-media">
+              <img src="{{ ad.url }}" alt="Marketplace ad {{ forloop.counter }}" loading="lazy">
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      <button class="ad-nav ad-prev" type="button" aria-label="Previous ad">
+        <span aria-hidden="true">&#10094;</span>
+      </button>
+      <button class="ad-nav ad-next" type="button" aria-label="Next ad">
+        <span aria-hidden="true">&#10095;</span>
+      </button>
+    </div>
+    {% endif %}
   </div>
 </header>
 
@@ -185,6 +207,96 @@
 
 
 <style>
+  .ad-carousel {
+    position: relative;
+    overflow: hidden;
+    padding: 1.5rem;
+  }
+
+  .ad-track-wrapper {
+    overflow: hidden;
+  }
+
+  .ad-track {
+    display: flex;
+    gap: 1rem;
+    transition: transform 0.6s ease;
+    will-change: transform;
+  }
+
+  .ad-card {
+    flex: 0 0 100%;
+  }
+
+  .ad-media {
+    position: relative;
+    width: 100%;
+    min-height: 220px;
+    border-radius: 1.25rem;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  }
+
+  .ad-media img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .ad-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.4);
+    color: #fff;
+    border: none;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    z-index: 2;
+  }
+
+  .ad-nav:hover {
+    background: rgba(0, 0, 0, 0.6);
+  }
+
+  .ad-prev {
+    left: 12px;
+  }
+
+  .ad-next {
+    right: 12px;
+  }
+
+  @media (min-width: 768px) {
+    .ad-card {
+      flex: 0 0 85%;
+    }
+
+    .ad-media {
+      min-height: 260px;
+    }
+  }
+
+  @media (min-width: 992px) {
+    .ad-carousel {
+      padding-inline: 2rem;
+    }
+
+    .ad-card {
+      flex: 0 0 75%;
+    }
+
+    .ad-track-wrapper {
+      overflow: visible;
+    }
+  }
+
   .floating-add-button {
     position: fixed;
     bottom: 4vw;
@@ -297,6 +409,70 @@
     }
   }
 </style>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const track = document.querySelector('.ad-track');
+    const cards = track ? Array.from(track.children) : [];
+    const prevBtn = document.querySelector('.ad-prev');
+    const nextBtn = document.querySelector('.ad-next');
+    const gap = 16;
+    let currentIndex = 0;
+    let slidesToShow = 1;
+    let autoTimer = null;
+
+    if (!track || !cards.length) {
+      return;
+    }
+
+    function calculateSlidesToShow() {
+      if (window.innerWidth >= 1200) return 1.5;
+      if (window.innerWidth >= 992) return 1.25;
+      if (window.innerWidth >= 768) return 1.05;
+      return 1;
+    }
+
+    function layout() {
+      slidesToShow = calculateSlidesToShow();
+      const wrapper = track.parentElement;
+      const wrapperWidth = wrapper.getBoundingClientRect().width;
+      const cardWidth =
+        (wrapperWidth - gap * (slidesToShow - 1)) / slidesToShow;
+      cards.forEach((card) => {
+        card.style.width = `${cardWidth}px`;
+      });
+      updatePosition();
+    }
+
+    function updatePosition() {
+      const firstCard = cards[0];
+      if (!firstCard) return;
+      const cardWidth = firstCard.getBoundingClientRect().width;
+      const offset = currentIndex * (cardWidth + gap);
+      track.style.transform = `translateX(-${offset}px)`;
+    }
+
+    function goTo(index) {
+      currentIndex = (index + cards.length) % cards.length;
+      updatePosition();
+      resetAuto();
+    }
+
+    function resetAuto() {
+      if (autoTimer) clearInterval(autoTimer);
+      autoTimer = setInterval(() => goTo(currentIndex + 1), 5000);
+    }
+
+    prevBtn?.addEventListener('click', () => goTo(currentIndex - 1));
+    nextBtn?.addEventListener('click', () => goTo(currentIndex + 1));
+    window.addEventListener('resize', () => {
+      layout();
+    });
+
+    layout();
+    resetAuto();
+  });
+</script>
 
 {% if user.is_authenticated %}
 <script>

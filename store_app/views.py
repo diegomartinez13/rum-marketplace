@@ -14,6 +14,7 @@ from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from decimal import Decimal
 import logging
+import os
 from django.http import JsonResponse
 from datetime import timedelta
 from django.utils.timesince import timesince
@@ -48,6 +49,14 @@ def home(request):
     products_page_obj = Paginator(products_qs, 12).get_page(product_page_number)
     services_page_obj = Paginator(services_qs, 12).get_page(service_page_number)
 
+    ads = []
+    ads_dir = os.path.join(settings.MEDIA_ROOT, "ads")
+    for i in range(1, 11):
+        filename = f"ad{i}.png"
+        file_path = os.path.join(ads_dir, filename)
+        if os.path.exists(file_path):
+            ads.append({"url": f"{settings.MEDIA_URL}ads/{filename}"})
+
     products_categories = ProductCategory.objects.all()
     services_categories = ServiceCategory.objects.all()
     user = request.user
@@ -71,6 +80,7 @@ def home(request):
         "services_categories": services_categories,
         "user": user,
         "unread_messages_count": unread_messages_count,
+        "ads": ads,
     }
     return render(request, "home.html", context)
 
