@@ -26,7 +26,7 @@
       <div class="ad-track-wrapper">
         <div class="ad-track">
           {% for ad in ads %}
-          <div class="ad-card">
+          <div class="ad-card{% if forloop.first %} is-active{% endif %}">
             <div class="ad-media">
               <img src="{{ ad.url }}" alt="Marketplace ad {{ forloop.counter }}" loading="lazy">
             </div>
@@ -34,12 +34,13 @@
           {% endfor %}
         </div>
       </div>
-      <button class="ad-nav ad-prev" type="button" aria-label="Previous ad">
-        <span aria-hidden="true">&#10094;</span>
-      </button>
-      <button class="ad-nav ad-next" type="button" aria-label="Next ad">
-        <span aria-hidden="true">&#10095;</span>
-      </button>
+      {% if ads|length > 1 %}
+      <div class="ad-dots">
+        {% for ad in ads %}
+        <button class="ad-dot{% if forloop.first %} is-active{% endif %}" type="button" aria-label="Go to ad {{ forloop.counter }}"></button>
+        {% endfor %}
+      </div>
+      {% endif %}
     </div>
     {% endif %}
   </div>
@@ -219,17 +220,22 @@
   }
 
   .ad-track {
-    display: flex;
-    gap: 0;
-    transition: transform 0.6s ease;
-    will-change: transform;
-    justify-content: center;
+    position: relative;
+    min-height: 240px;
   }
 
   .ad-card {
-    flex: 0 0 100%;
-    max-width: 1100px;
-    margin: 0 auto;
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    display: flex;
+    justify-content: center;
+  }
+
+  .ad-card.is-active {
+    opacity: 1;
+    z-index: 1;
   }
 
   .ad-media {
@@ -248,40 +254,29 @@
     display: block;
   }
 
-  .ad-nav {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    background: rgba(0, 0, 0, 0.35);
-    color: #fff;
-    border: none;
-    width: 42px;
-    height: 42px;
+  .ad-dots {
+    display: flex;
+    justify-content: center;
+    gap: 0.6rem;
+    padding-top: 0.75rem;
+  }
+
+  .ad-dot {
+    width: 12px;
+    height: 12px;
     border-radius: 50%;
-    display: grid;
-    place-items: center;
+    border: 2px solid #198754;
+    background: #fff;
     cursor: pointer;
-    transition: all 0.2s ease;
-    z-index: 2;
+    transition: background 0.2s ease, transform 0.2s ease;
   }
 
-  .ad-nav:hover {
-    background: rgba(0, 0, 0, 0.6);
-  }
-
-  .ad-prev {
-    left: 8px;
-  }
-
-  .ad-next {
-    right: 8px;
+  .ad-dot.is-active {
+    background: #198754;
+    transform: scale(1.05);
   }
 
   @media (min-width: 768px) {
-    .ad-card {
-      flex: 0 0 100%;
-    }
-
     .ad-media {
       height: 260px;
     }
@@ -290,10 +285,6 @@
   @media (min-width: 992px) {
     .ad-carousel {
       padding-inline: 2rem;
-    }
-
-    .ad-card {
-      flex: 0 0 100%;
     }
 
     .ad-media {
@@ -418,48 +409,34 @@
   document.addEventListener('DOMContentLoaded', function() {
     const track = document.querySelector('.ad-track');
     const cards = track ? Array.from(track.children) : [];
-    const prevBtn = document.querySelector('.ad-prev');
-    const nextBtn = document.querySelector('.ad-next');
-    const gap = 16;
+    const dots = Array.from(document.querySelectorAll('.ad-dot'));
     let currentIndex = 0;
     let autoTimer = null;
 
-    if (!track || !cards.length) {
-      return;
-    }
+    if (!track || !cards.length) return;
 
-    function layout() {
-      const wrapper = track.parentElement;
-      const wrapperWidth = wrapper.getBoundingClientRect().width;
-      const cardWidth = wrapperWidth;
-      cards.forEach((card) => {
-        card.style.width = `${cardWidth}px`;
-      });
-      updatePosition();
-    }
-
-    function updatePosition() {
-      const firstCard = cards[0];
-      if (!firstCard) return;
-      const cardWidth = firstCard.getBoundingClientRect().width;
-      const offset = currentIndex * (cardWidth + gap);
-      track.style.transform = `translateX(-${offset}px)`;
-    }
-
-    function goTo(index) {
+    function setActive(index) {
       currentIndex = (index + cards.length) % cards.length;
-      updatePosition();
-      resetAuto();
+      cards.forEach((card, i) => {
+        card.classList.toggle('is-active', i === currentIndex);
+      });
+      dots.forEach((dot, i) => {
+        dot.classList.toggle('is-active', i === currentIndex);
+      });
+    }
+
+    function next() {
+      setActive(currentIndex + 1);
     }
 
     function resetAuto() {
       if (autoTimer) clearInterval(autoTimer);
       if (cards.length > 1) {
-        autoTimer = setInterval(() => goTo(currentIndex + 1), 5000);
+        autoTimer = setInterval(next, 5000);
       }
     }
 
-    // Pause on hover to avoid motion while cursor is over the image
+    // Pause on hover
     track.addEventListener('mouseenter', () => {
       if (autoTimer) {
         clearInterval(autoTimer);
@@ -468,19 +445,15 @@
     });
     track.addEventListener('mouseleave', resetAuto);
 
-    if (cards.length === 1) {
-      if (prevBtn) prevBtn.style.display = 'none';
-      if (nextBtn) nextBtn.style.display = 'none';
-    } else {
-      prevBtn?.addEventListener('click', () => goTo(currentIndex - 1));
-      nextBtn?.addEventListener('click', () => goTo(currentIndex + 1));
-    }
-
-    window.addEventListener('resize', () => {
-      layout();
+    // Dots navigation
+    dots.forEach((dot, i) => {
+      dot.addEventListener('click', () => {
+        setActive(i);
+        resetAuto();
+      });
     });
 
-    layout();
+    setActive(0);
     resetAuto();
   });
 </script>
