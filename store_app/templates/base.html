@@ -8,14 +8,15 @@
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-QTZNVRESGN"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
+    function gtag() { dataLayer.push(arguments); }
     gtag('js', new Date());
 
     gtag('config', 'G-QTZNVRESGN');
   </script>
 
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7946045188653475" crossorigin="anonymous"></script>
-  
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7946045188653475"
+    crossorigin="anonymous"></script>
+
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
   <meta name="description" content="" />
@@ -27,7 +28,8 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.5.0/font/bootstrap-icons.css" rel="stylesheet" />
   <!-- Core theme CSS (includes Bootstrap)-->
   <!-- <link href="{% static 'css/styles.css' %}?v=1" rel="stylesheet" /> -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
 </head>
 
 <body style="background-color: ghostwhite; display: flex; flex-direction: column; min-height: 100vh;">
@@ -60,17 +62,25 @@
               <li>
                 <hr class="dropdown-divider" />
               </li>
-              <li><p class="dropdown-header">Products</p></li>
+              <li>
+                <p class="dropdown-header">Products</p>
+              </li>
+              {% if products_categories %}
               {% for category in products_categories %}
               <li><a class="dropdown-item" href="#">{{ category.name }}</a></li>
               {% endfor %}
+              {% endif %}
               <li>
                 <hr class="dropdown-divider" />
               </li>
-              <li><p class="dropdown-header">Services</p></li>
+              <li>
+                <p class="dropdown-header">Services</p>
+              </li>
+              {% if services_categories %}
               {% for category in services_categories %}
               <li><a class="dropdown-item" href="#">{{ category }}</a></li>
               {% endfor %}
+              {% endif %}
               <li>
                 <hr class="dropdown-divider" />
               </li>
@@ -101,8 +111,8 @@
         <!-- User Dropdown -->
         <div class="d-flex">
           <div class="dropdown">
-            <button class="btn btn-secondary dropdown-toggle" type="button" id="userMenuButton" data-bs-toggle="dropdown"
-              aria-expanded="false">
+            <button class="btn btn-secondary dropdown-toggle" type="button" id="userMenuButton"
+              data-bs-toggle="dropdown" aria-expanded="false">
               <i class="bi bi-person-circle me-1"></i>
               {{ user.username }}
             </button>

@@ -6,7 +6,7 @@ from django.core.validators import RegexValidator
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 class UserProfile(models.Model):
     # Link to Django's built-in User (for authentication)
