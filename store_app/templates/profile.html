@@ -85,12 +85,17 @@
     {% if user_products_page_obj.object_list %}
     {% for product in user_products_page_obj %}
     <div class="col-md-4 mb-4">
-      <div class="card">
+      <div class="card position-relative">
+        {% if product.sold_out %}
+        <span class="badge bg-danger position-absolute top-0 start-0 m-2" style="z-index: 10; font-size: 1rem;">
+          SOLD OUT
+        </span>
+        {% endif %}
         {% if product.primary_image %}
         <img src="{{ product.primary_image.url }}" class="card-img-top" alt="{{ product.name }}" height="250px"
-          style="object-fit: scale-down;">
+          style="object-fit: scale-down; {% if product.sold_out %}opacity: 0.6;{% endif %}">
         {% else %}
-        <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 250px;">
+        <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 250px; {% if product.sold_out %}opacity: 0.6;{% endif %}">
           <i class="bi bi-image" style="font-size: 3rem; color: #ccc;"></i>
         </div>
         {% endif %}
@@ -106,8 +111,44 @@
           {% else %}
           <p class="card-text"><strong>Price:</strong> ${{ product.price }}</p>
           {% endif %}
-          <div class="d-flex justify-content-between align-items-center">
-            <a href="#" class="btn btn-outline-secondary">Edit Product Info</a>
+          <div class="d-flex flex-column gap-2">
+            <div class="d-flex gap-2">
+              <a href="#" class="btn btn-outline-secondary flex-fill">Edit Product Info</a>
+            </div>
+            <div class="d-flex gap-2">
+              <a href="{% url 'store_app:toggle_sold_out_product' product.id %}" 
+                 class="btn {% if product.sold_out %}btn-success{% else %}btn-warning{% endif %} flex-fill">
+                {% if product.sold_out %}
+                  <i class="bi bi-check-circle me-1"></i>Mark Available
+                {% else %}
+                  <i class="bi bi-x-circle me-1"></i>Mark Sold Out
+                {% endif %}
+              </a>
+              <button type="button" class="btn btn-danger flex-fill" data-bs-toggle="modal" 
+                      data-bs-target="#deleteProductModal{{ product.id }}">
+                <i class="bi bi-trash me-1"></i>Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Delete Confirmation Modal for Product -->
+    <div class="modal fade" id="deleteProductModal{{ product.id }}" tabindex="-1" aria-labelledby="deleteProductModalLabel{{ product.id }}" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="deleteProductModalLabel{{ product.id }}">Confirm Deletion</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            Are you sure you want to delete this listing? This action cannot be undone.
+            <br><strong>{{ product.name }}</strong>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <a href="{% url 'store_app:delete_product' product.id %}" class="btn btn-danger">Delete</a>
           </div>
         </div>
       </div>
@@ -145,8 +186,13 @@
     {% if user_services_page_obj.object_list %}
     {% for service in user_services_page_obj %}
     <div class="col-md-4 mb-4">
-      <div class="card">
-        <div class="card-body">
+      <div class="card position-relative">
+        {% if service.sold_out %}
+        <span class="badge bg-danger position-absolute top-0 start-0 m-2" style="z-index: 10; font-size: 1rem;">
+          SOLD OUT
+        </span>
+        {% endif %}
+        <div class="card-body" {% if service.sold_out %}style="opacity: 0.7;"{% endif %}>
           <h5 class="card-title">{{ service.name }}</h5>
           <p class="card-text">{{ service.description }}</p>
           {% if service.discount %}
@@ -158,8 +204,44 @@
           {% else %}
           <p class="card-text"><strong>Price:</strong> ${{ service.price }}</p>
           {% endif %}
-          <div class="d-flex justify-content-between align-items-center">
-            <a href="#" class="btn btn-outline-secondary">Edit Service Info</a>
+          <div class="d-flex flex-column gap-2">
+            <div class="d-flex gap-2">
+              <a href="#" class="btn btn-outline-secondary flex-fill">Edit Service Info</a>
+            </div>
+            <div class="d-flex gap-2">
+              <a href="{% url 'store_app:toggle_sold_out_service' service.id %}" 
+                 class="btn {% if service.sold_out %}btn-success{% else %}btn-warning{% endif %} flex-fill">
+                {% if service.sold_out %}
+                  <i class="bi bi-check-circle me-1"></i>Mark Available
+                {% else %}
+                  <i class="bi bi-x-circle me-1"></i>Mark Sold Out
+                {% endif %}
+              </a>
+              <button type="button" class="btn btn-danger flex-fill" data-bs-toggle="modal" 
+                      data-bs-target="#deleteServiceModal{{ service.id }}">
+                <i class="bi bi-trash me-1"></i>Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Delete Confirmation Modal for Service -->
+    <div class="modal fade" id="deleteServiceModal{{ service.id }}" tabindex="-1" aria-labelledby="deleteServiceModalLabel{{ service.id }}" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="deleteServiceModalLabel{{ service.id }}">Confirm Deletion</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            Are you sure you want to delete this listing? This action cannot be undone.
+            <br><strong>{{ service.name }}</strong>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <a href="{% url 'store_app:delete_service' service.id %}" class="btn btn-danger">Delete</a>
           </div>
         </div>
       </div>

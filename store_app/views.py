@@ -1347,6 +1347,76 @@ def update_profile(request, user_id):
     return render(request, "update_profile.html", context)
 
 
+@login_required
+def toggle_sold_out_product(request, product_id):
+    """Toggle sold out status for a product"""
+    product = get_object_or_404(Product, id=product_id)
+    
+    # Check if user owns this product
+    if product.user_vendor != request.user:
+        messages.error(request, "You are not authorized to modify this product.")
+        return redirect("store_app:profile")
+    
+    # Toggle sold out status
+    product.sold_out = not product.sold_out
+    product.save()
+    
+    status_text = "marked as sold out" if product.sold_out else "marked as available"
+    messages.success(request, f"Product '{product.name}' has been {status_text}.")
+    return redirect("store_app:profile")
+
+
+@login_required
+def toggle_sold_out_service(request, service_id):
+    """Toggle sold out status for a service"""
+    service = get_object_or_404(Service, id=service_id)
+    
+    # Check if user owns this service
+    if service.user_provider != request.user:
+        messages.error(request, "You are not authorized to modify this service.")
+        return redirect("store_app:profile")
+    
+    # Toggle sold out status
+    service.sold_out = not service.sold_out
+    service.save()
+    
+    status_text = "marked as sold out" if service.sold_out else "marked as available"
+    messages.success(request, f"Service '{service.name}' has been {status_text}.")
+    return redirect("store_app:profile")
+
+
+@login_required
+def delete_product(request, product_id):
+    """Delete a product listing"""
+    product = get_object_or_404(Product, id=product_id)
+    
+    # Check if user owns this product
+    if product.user_vendor != request.user:
+        messages.error(request, "You are not authorized to delete this product.")
+        return redirect("store_app:profile")
+    
+    product_name = product.name
+    product.delete()
+    messages.success(request, f"Product '{product_name}' has been deleted.")
+    return redirect("store_app:profile")
+
+
+@login_required
+def delete_service(request, service_id):
+    """Delete a service listing"""
+    service = get_object_or_404(Service, id=service_id)
+    
+    # Check if user owns this service
+    if service.user_provider != request.user:
+        messages.error(request, "You are not authorized to delete this service.")
+        return redirect("store_app:profile")
+    
+    service_name = service.name
+    service.delete()
+    messages.success(request, f"Service '{service_name}' has been deleted.")
+    return redirect("store_app:profile")
+
+
 def product_detail(request, product_id):
     """Display detailed view of a product with image slideshow"""
     product = get_object_or_404(Product, id=product_id)

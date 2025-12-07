@@ -85,6 +85,7 @@ class Product(models.Model):
     user_vendor = models.ForeignKey(
         User, on_delete=models.CASCADE, null=True, blank=True, related_name="products"
     )
+    sold_out = models.BooleanField(default=False)
 
     @property
     def final_price(self):
@@ -163,6 +164,7 @@ class Service(models.Model):
     user_provider = models.ForeignKey(
         User, on_delete=models.CASCADE, null=True, blank=True, related_name="services"
     )
+    sold_out = models.BooleanField(default=False)
 
     @property
     def final_price(self):
