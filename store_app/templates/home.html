@@ -17,7 +17,7 @@
 <!-- Header-->
 <header class="py-5" style="background-color: ghostwhite;">
   <div class="container-fluid align-items-center justify-content-center">
-    <div class="text-center text-dark">
+    <div class="text-center text-dark mb-3">
       <h1 class="display-4 fw-bolder" style="color:green">Welcome to RUM Marketplace</h1>
       <p class="lead fw-bold mb-0" style="color: green;">Buy, sell, and explore products from students on campus</p>
     </div>
@@ -211,6 +211,7 @@
     position: relative;
     overflow: hidden;
     padding: 0;
+    margin-top: 1.5rem;
   }
 
   .ad-track-wrapper {
@@ -231,7 +232,7 @@
   .ad-media {
     position: relative;
     width: 100%;
-    min-height: 180px;
+    min-height: 140px;
     border-radius: 1.25rem;
     overflow: hidden;
     box-shadow: none;
@@ -275,13 +276,19 @@
 
   @media (min-width: 768px) {
     .ad-media {
-      min-height: 200px;
+      min-height: 160px;
     }
   }
 
   @media (min-width: 992px) {
     .ad-carousel {
       padding-inline: 2rem;
+    }
+
+    .ad-media {
+      min-height: 140px;
+      transform: scale(0.85);
+      transform-origin: center;
     }
   }
 
