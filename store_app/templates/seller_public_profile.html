@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load dict_filters %}
 
 {% block content %}
 {% if messages %}
@@ -65,7 +66,7 @@
           </div>
 
           <!-- Description -->
-          {% if seller_profile.description %}
+          {% if seller_profile.description != "" and seller_profile.description is not None and seller_profile.description != "None" %}
           <p class="text-muted mb-3" style="font-style: italic;">{{ seller_profile.description }}</p>
           {% endif %}
 
@@ -100,7 +101,7 @@
             <p class="card-text"><strong>Rating Breakdown:</strong></p>
             {% for star in "54321" %}
             {% with star_num=star|add:0 %}
-            {% with distribution_item=rating_distribution.star_num %}
+            {% with distribution_item=rating_distribution|dict_get:star_num %}
             <div class="row align-items-center mb-1">
               <div class="col-3">
                 {{ star_num }} <i class="bi bi-star-fill text-warning"></i>
@@ -108,7 +109,7 @@
               <div class="col-7">
                 <div class="progress" style="height: 8px;">
                   <div class="progress-bar bg-warning" role="progressbar"
-                    style="width: {{ distribution_item.percentage|default:0 }}%">
+                    style="width: {{ distribution_item.percentage|default:0 }}%;">
                   </div>
                 </div>
               </div>
@@ -223,75 +224,6 @@
   </div>
 </div>
 
-<!-- Products and Services Listings -->
-{% if user_products or user_services %}
-<div class="container mt-5">
-  <h3 class="mb-4">Seller's Listings</h3>
-
-  <!-- Products Section -->
-  {% if user_products %}
-  <div class="row mb-5">
-    <h4 class="mb-3">Products</h4>
-    {% for product in user_products %}
-    <div class="col-md-4 mb-4">
-      <div class="card h-100">
-        {% if product.primary_image %}
-        <img src="{{ product.primary_image.url }}" class="card-img-top" alt="{{ product.name }}" height="200px"
-          style="object-fit: contain; padding: 15px;">
-        {% else %}
-        <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 200px;">
-          <i class="bi bi-image" style="font-size: 3rem; color: #ccc;"></i>
-        </div>
-        {% endif %}
-        <div class="card-body d-flex flex-column">
-          <h5 class="card-title">{{ product.name }}</h5>
-          <p class="card-text flex-grow-1">{{ product.description|truncatechars:100 }}</p>
-          {% if product.discount %}
-          <p class="card-text">
-            <strong>Price:</strong>
-            <span class="text-decoration-line-through text-muted">${{ product.price }}</span>
-            <span class="text-danger ms-2">${{ product.final_price }}</span>
-          </p>
-          {% else %}
-          <p class="card-text"><strong>Price:</strong> ${{ product.price }}</p>
-          {% endif %}
-          <a href="#" class="btn btn-outline-primary mt-auto">View Product</a>
-        </div>
-      </div>
-    </div>
-    {% endfor %}
-  </div>
-  {% endif %}
-
-  <!-- Services Section -->
-  {% if user_services %}
-  <div class="row">
-    <h4 class="mb-3">Services</h4>
-    {% for service in user_services %}
-    <div class="col-md-4 mb-4">
-      <div class="card h-100">
-        <div class="card-body d-flex flex-column">
-          <h5 class="card-title">{{ service.name }}</h5>
-          <p class="card-text flex-grow-1">{{ service.description|truncatechars:100 }}</p>
-          {% if service.discount %}
-          <p class="card-text">
-            <strong>Price:</strong>
-            <span class="text-decoration-line-through text-muted">${{ service.price }}</span>
-            <span class="text-danger ms-2">${{ service.final_price }}</span>
-          </p>
-          {% else %}
-          <p class="card-text"><strong>Price:</strong> ${{ service.price }}</p>
-          {% endif %}
-          <a href="#" class="btn btn-outline-primary mt-auto">View Service</a>
-        </div>
-      </div>
-    </div>
-    {% endfor %}
-  </div>
-  {% endif %}
-</div>
-{% endif %}
-
 <!-- Review Modal -->
 {% if user.is_authenticated and user != seller_profile.user %}
 <div class="modal fade" id="reviewModal" tabindex="-1">
@@ -307,6 +239,7 @@
         <!-- Hidden inputs -->
         <input type="hidden" id="sellerId" value="{{ seller_profile.id }}">
         <input type="hidden" id="reviewerEmail" value="{{ user.email }}">
+        <input type="hidden" id="reviewerName" value="{{ user.get_full_name|default:user.username }}">
 
         <!-- Current User Info -->
         <div class="alert alert-info mb-3">
@@ -315,26 +248,22 @@
         </div>
 
         <!-- Star Rating -->
-        <form id="reviewForm">
+        <form id="reviewForm" method="post" onsubmit="return validateReview();">
           {% csrf_token %}
           <div class="mb-3">
             <p class="form-label fw-bold">Your Rating</p>
             <div class="d-flex justify-content-center">
-              <div class="star-rating rating-input animated-stars mt-2">
-                <input type="radio" id="rating5" name="rating" value="5">
-                <label for="rating5" class="bi bi-star-fill" data-value="5"></label>
-  
-                <input type="radio" id="rating4" name="rating" value="4">
-                <label for="rating4" class="bi bi-star-fill" data-value="4"></label>
-  
-                <input type="radio" id="rating3" name="rating" value="3">
-                <label for="rating3" class="bi bi-star-fill" data-value="3"></label>
-  
-                <input type="radio" id="rating2" name="rating" value="2">
-                <label for="rating2" class="bi bi-star-fill" data-value="2"></label>
-  
-                <input type="radio" id="rating1" name="rating" value="1">
-                <label for="rating1" class="bi bi-star-fill" data-value="1"></label>
+              <div class="star-rating animated-stars mt-2">
+                <input type="radio" id="star5" name="rating" value="5">
+                <label for="star5" class="bi bi-star-fill"></label>
+                <input type="radio" id="star4" name="rating" value="4">
+                <label for="star4" class="bi bi-star-fill"></label>
+                <input type="radio" id="star3" name="rating" value="3">
+                <label for="star3" class="bi bi-star-fill"></label>
+                <input type="radio" id="star2" name="rating" value="2">
+                <label for="star2" class="bi bi-star-fill"></label>
+                <input type="radio" id="star1" name="rating" value="1">
+                <label for="star1" class="bi bi-star-fill"></label>
               </div>
             </div>
             <div class="d-flex justify-content-center mt-2">
@@ -347,19 +276,19 @@
               {% endif %}
             </div>
           </div>
-  
+
           <!-- Review Text -->
           <div class="mb-3">
             <label for="reviewText" class="form-label fw-bold">Your Review (Optional)</label>
             <textarea class="form-control" id="reviewText" rows="4"
               placeholder="Share your experience with this seller..."></textarea>
           </div>
-  
+
           <!-- Submit Button -->
           <button class="btn btn-success w-100 py-2" id="submitBtn">
             <i class="bi bi-check-circle me-1"></i>Submit Review
           </button>
-  
+
           <!-- Status Message -->
           <div id="submitStatus" class="mt-2"></div>
         </form>
@@ -368,6 +297,7 @@
   </div>
 </div>
 {% endif %}
+
 <style>
   .star-rating {
     direction: rtl;
@@ -393,118 +323,126 @@
     color: #ffc107;
   }
 </style>
-{% endblock %}
 
-{% block extra_js %}
 <script>
-  // let selectedRating = 0;
+  // star rating animation
+  document.querySelectorAll('.star-rating:not(.readonly) label').forEach(star => {
+    star.addEventListener('click', function () {
+      this.style.transform = 'scale(1.4)';
+      setTimeout(() => {
+        this.style.transform = 'scale(1)';
+      }, 200);
+    });
+  });
 
-  // document.addEventListener("DOMContentLoaded", () => {
-  //   const ratingLabels = document.querySelectorAll(".rating-input label");
-  //   const ratingText = document.getElementById("ratingText");
-  //   const ratingNames = ["Select a rating", "Poor", "Fair", "Average", "Good", "Excellent"];
+  // Update rating text on star selection
+  document.querySelectorAll('.star-rating input').forEach((input) => {
+    input.addEventListener('change', () => {
+      const rating = input.value;
+      const ratingText = document.getElementById('ratingText');
+      const ratingDescriptions = {
+        1: 'Very Poor',
+        2: 'Poor',
+        3: 'Average',
+        4: 'Good',
+        5: 'Excellent'
+      };
+      ratingText.innerHTML = "<strong>" + ratingDescriptions[rating] + "</strong>" || 'Select a rating';
+    });
+  });
 
-  //   ratingLabels.forEach(label => {
-  //     label.addEventListener("click", () => {
-  //       selectedRating = parseInt(label.dataset.value);
-  //       ratingText.innerHTML = `<strong>${ratingNames[selectedRating]}</strong> (${selectedRating} star${selectedRating > 1 ? 's' : ''})`;
+  // event listener for submit button
+  document.getElementById('submitBtn').addEventListener('click', function (event) {
+    event.preventDefault(); // Prevent default form submission
+    if (validateReview()) {
+      const selectedRating = document.querySelector('.star-rating input:checked');
+      const seller_id = document.getElementById('sellerId').value;
+      const reviewer_email = document.getElementById('reviewerEmail').value;
+      const score = selectedRating.value;
+      const review_text = document.getElementById('reviewText').value;
+      const reviewer_name = document.getElementById('reviewerName').value;
 
-  //       label.style.transform = "scale(1.25)";
-  //       setTimeout(() => {
-  //         label.style.transform = "scale(1)";
-  //       }, 150);
-  //     });
-  //   });
-  // });
+      const reviewData = {
+        seller_id: seller_id,
+        reviewer_email: reviewer_email,
+        score: score,
+        review_text: review_text,
+        reviewer_name: reviewer_name,
+      };
 
-  // function getSelectedRating() {
-  //   return selectedRating;
-  // }
+      submitReview(reviewData);
+    }
 
-  // function submitReview() {
-  //   console.log("Submitting review...");
-  //   const sellerId = document.getElementById('sellerId').value;
-  //   const reviewerEmail = document.getElementById('reviewerEmail').value;
-  //   const reviewText = document.getElementById('reviewText').value;
-  //   const score = getSelectedRating();
+    // Close modal after 2 seconds
+    setTimeout(() => {
+      const modal = bootstrap.Modal.getInstance(document.getElementById('reviewModal'));
+      modal.hide();
+    }, 2000);
+  });
 
-  //   if (score === 0) {
-  //     showMessage('Please select a rating', 'warning');
-  //     return;
-  //   }
+  // Validate and submit review form
+  function validateReview() {
+    const selectedRating = document.querySelector('.star-rating input:checked');
+    const submitStatus = document.getElementById('submitStatus');
+    submitStatus.innerHTML = '';
 
-  //   const data = {
-  //     seller_id: sellerId,
-  //     reviewer_email: reviewerEmail,
-  //     score: score,
-  //     review_text: reviewText
-  //   };
+    if (!selectedRating) {
+      submitStatus.innerHTML = '<div class="alert alert-danger">Please select a star rating.</div>';
+      return false;
+    }
 
-  //   const btn = document.getElementById('submitBtn');
-  //   const originalText = btn.innerHTML;
-  //   btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Submitting...';
-  //   btn.disabled = true;
+    // Optionally, you can add AJAX submission logic here
+    const seller_id = document.getElementById('sellerId').value;
+    const reviewer_email = document.getElementById('reviewerEmail').value;
+    const score = selectedRating.value;
+    const review_text = document.getElementById('reviewText').value;
+    const reviewer_name = document.getElementById('reviewerName').value;
 
-  //   fetch('api/reviews/submit/', {
-  //     method: 'POST',
-  //     headers: {
-  //       'Content-Type': 'application/json',
-  //       'X-CSRFToken': getCSRFToken()
-  //     },
-  //     body: JSON.stringify(data)
-  //   })
-  //     .then(res => res.json())
-  //     .then(data => {
-  //       if (data.success) {
-  //         showMessage('Review submitted successfully!', 'success');
-  //         setTimeout(() => {
-  //           const modal = bootstrap.Modal.getInstance(document.getElementById('reviewModal'));
-  //           modal.hide();
-  //           location.reload();
-  //         }, 1500);
-  //       } else {
-  //         showMessage('Error: ' + data.error, 'danger');
-  //         btn.innerHTML = originalText;
-  //         btn.disabled = false;
-  //       }
-  //     })
-  //     .catch(err => {
-  //       console.error(err);
-  //       showMessage('An error occurred. Please try again.', 'danger');
-  //       btn.innerHTML = originalText;
-  //       btn.disabled = false;
-  //     });
-  // }
+    const reviewData = {
+      seller_id: seller_id,
+      reviewer_email: reviewer_email,
+      score: score,
+      review_text: review_text,
+      reviewer_name: reviewer_name,
+    };
+    console.log('Review Data:', reviewData);
 
-  // function getCSRFToken() {
-  //   return document.querySelector('[name=csrfmiddlewaretoken]').value;
-  // }
+    return true; // Allow form submission
+  }
 
-  // function showMessage(text, type) {
-  //   const statusDiv = document.getElementById('submitStatus');
-  //   statusDiv.innerHTML = `
-  //       <div class="alert alert-${type} alert-dismissible fade show">
-  //           ${text}
-  //           <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-  //       </div>
-  //   `;
-  // }
+  // Submit review via AJAX
+  function submitReview(review_data) {
 
-  // document.getElementById("reviewForm").addEventListener("submit", async function(e) {
-  //     e.preventDefault();
+    let info = {
+      seller_id: review_data.seller_id,
+      reviewer_email: review_data.reviewer_email,
+      score: review_data.score,
+      review_text: review_data.review_text,
+      reviewer_name: review_data.reviewer_name,
+    };
 
-  //     const formData = new FormData(this);
 
-  //     const response = await submitReview();
-
-  //     const data = await response.json();
-
-  //     if (data.success) {
-  //         alert("Saved!");
-  //     } else {
-  //         alert("Error: " + data.error);
-  //     }
-  // });
-
+    fetch('{% url "store_app:submit_review_api" %}', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': '{{ csrf_token }}',
+      },
+      body: JSON.stringify(info),
+    })
+      .then(response => response.json())
+      .then(data => {
+        const submitStatus = document.getElementById('submitStatus');
+        if (data.success) {
+          submitStatus.innerHTML = '<div class="alert alert-success">Review submitted successfully!</div>';
+          // Optionally, refresh the page or update the reviews section
+        } else {
+          submitStatus.innerHTML = '<div class="alert alert-danger">An error occurred while submitting your review. Please try again.</div>';
+        }
+      })
+      .catch((error) => {
+        console.error('Error:', error);
+      });
+  }
 </script>
 {% endblock %}

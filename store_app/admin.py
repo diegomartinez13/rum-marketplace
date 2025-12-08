@@ -18,6 +18,7 @@ from .models import (
     PurchaseHistory,
     Conversation,
     Message,
+    SellerRating,
 )
 
 
@@ -52,6 +53,7 @@ admin.site.register(StockedService)
 admin.site.register(Review)
 admin.site.register(Cart)
 admin.site.register(PurchaseHistory)
+admin.site.register(SellerRating)
 
 
 @admin.register(Conversation)

@@ -3,6 +3,7 @@ from django.contrib.auth.models import User
 from django.db import transaction
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+from ..models import SellerRating, UserProfile
 import logging
 
 logger = logging.getLogger(__name__)
@@ -29,7 +30,6 @@ def submit_rating_for_seller(seller_profile_id, reviewer_email, score, review_te
     """
     Submit a rating for a seller WITHOUT audit logging
     """
-    from .models import SellerRating, UserProfile
     
     try:
         with transaction.atomic():
@@ -111,7 +111,7 @@ def handle_user_deletion(user_id):
         logger.error(f"Error handling user deletion: {str(e)}")
         return False
 
-def get_seller_stats(seller_profile):
+def get_seller_stats(seller_profile: UserProfile):
     """
     Get rating statistics for a seller
     """

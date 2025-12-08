@@ -17,7 +17,7 @@ class UserProfile(models.Model):
     is_seller = models.BooleanField(default=False)
     provides_service = models.BooleanField(default=False)
     profile_picture = models.ImageField(upload_to="uploads/profile_pictures/", blank=True, null=True)
-    description = models.TextField(max_length=200, blank=True, null=True)
+    description = models.TextField(max_length=200, blank=True, null=True, default="")
 
     # Email verification (for your app, separate from Django auth)
     pending_email_verification = models.BooleanField(default=True)
@@ -465,7 +465,8 @@ class SellerRating(models.Model):
     
     # Reviewer details (for tracking even if account is deleted)
     seller_was_deleted = models.BooleanField(default=False)
-    original_seller_email = models.EmailField(blank=True)
+    original_seller_email = models.EmailField(blank=True, null=True, default=None)
+    original_seller_name = models.CharField(max_length=150, blank=True, null=True, default=None)
     
     # Store reviewer email as primary identifier
     reviewer_email = models.EmailField(db_index=True)

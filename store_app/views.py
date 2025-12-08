@@ -40,6 +40,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST, require_GET
 from .utils.review_utils import *
 from django.db.models import Avg, Count
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -1415,7 +1416,7 @@ def submit_review_api(request):
             return JsonResponse({'success': False, 'error': 'Seller ID is required'}, status=400)
         
         try:
-            validate_email(reviewer_email)
+            reviewer_email == User.objects.get(email=reviewer_email)
         except ValidationError:
             return JsonResponse({'success': False, 'error': 'Invalid email address'}, status=400)
         
