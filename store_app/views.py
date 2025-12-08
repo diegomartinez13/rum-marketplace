@@ -5,7 +5,6 @@ from django.http import Http404
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.views import View
-from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import Q
 from django.contrib.auth import authenticate, login, logout
@@ -15,11 +14,12 @@ from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from decimal import Decimal
 import logging
+import os
 from django.http import JsonResponse
 from datetime import timedelta
-from django.utils import timezone
 from django.utils.timesince import timesince
 from django.core.mail import send_mail
+from django.core.paginator import Paginator
 import secrets  # only if you still want a fallback; see note below
 
 from .forms import PreSignupForm
@@ -46,11 +46,22 @@ logger = logging.getLogger(__name__)
 
 
 def home(request):
-    newest_products = get_newest_products(request).get("products", [])
-    newest_services = get_newest_services(request).get("services", [])
+    products_qs = Product.objects.all().order_by("-id")
+    services_qs = Service.objects.all().order_by("-id")
 
-    products = Product.objects.all()
-    services = Service.objects.all()
+    product_page_number = request.GET.get("product_page")
+    service_page_number = request.GET.get("service_page")
+
+    products_page_obj = Paginator(products_qs, 12).get_page(product_page_number)
+    services_page_obj = Paginator(services_qs, 12).get_page(service_page_number)
+
+    ads = []
+    ads_dir = os.path.join(settings.MEDIA_ROOT, "ads")
+    for i in range(1, 11):
+        filename = f"ad{i}.png"
+        file_path = os.path.join(ads_dir, filename)
+        if os.path.exists(file_path):
+            ads.append({"url": f"{settings.MEDIA_URL}ads/{filename}"})
 
     products_categories = ProductCategory.objects.all()
     services_categories = ServiceCategory.objects.all()
@@ -69,14 +80,13 @@ def home(request):
         )
 
     context = {
-        "newest_products": newest_products,
-        "newest_services": newest_services,
-        "products": products,
+        "products_page_obj": products_page_obj,
+        "services_page_obj": services_page_obj,
         "products_categories": products_categories,
         "services_categories": services_categories,
         "user": user,
-        "services": services,
         "unread_messages_count": unread_messages_count,
+        "ads": ads,
     }
     return render(request, "home.html", context)
 
@@ -341,22 +351,37 @@ def create_category(request):
 def search(request):
     query = request.GET.get("q", "")
     if query:
-        products = Product.objects.filter(
+        products_qs = Product.objects.filter(
             Q(name__icontains=query) | Q(description__icontains=query)
-        )
-        services = Service.objects.filter(
+        ).order_by("-id")
+        services_qs = Service.objects.filter(
             Q(name__icontains=query) | Q(description__icontains=query)
-        )
+        ).order_by("-id")
     else:
         messages.error(
             request, "Item not founds matching your search. Please try again."
         )
         return redirect("store_app:home")
 
+    product_page_number = request.GET.get("product_page")
+    service_page_number = request.GET.get("service_page")
+
+    products_page_obj = Paginator(products_qs, 12).get_page(product_page_number)
+    services_page_obj = Paginator(services_qs, 12).get_page(service_page_number)
+
+    products_categories = ProductCategory.objects.all()
+    services_categories = ServiceCategory.objects.all()
+
     return render(
         request,
         "home.html",
-        {"products": products, "services": services, "query": query},
+        {
+            "products_page_obj": products_page_obj,
+            "services_page_obj": services_page_obj,
+            "query": query,
+            "products_categories": products_categories,
+            "services_categories": services_categories,
+        },
     )
 
 
@@ -1197,8 +1222,14 @@ def profile(request):
     """Display and edit user profile"""
     user = request.user
     profile = user.profile  # type: ignore
-    products = Product.objects.filter(user_vendor=user)
-    services = Service.objects.filter(user_provider=user)
+    products = Product.objects.filter(user_vendor=user).order_by("-id")
+    services = Service.objects.filter(user_provider=user).order_by("-id")
+
+    products_page_number = request.GET.get("products_page")
+    services_page_number = request.GET.get("services_page")
+
+    user_products_page_obj = Paginator(products, 12).get_page(products_page_number)
+    user_services_page_obj = Paginator(services, 12).get_page(services_page_number)
 
     if request.method == "POST":
         """
@@ -1254,8 +1285,8 @@ def profile(request):
     context = {
         "user": user,
         "profile": profile,
-        "user_products": products,
-        "user_services": services,
+        "user_products_page_obj": user_products_page_obj,
+        "user_services_page_obj": user_services_page_obj,
     }
     return render(request, "profile.html", context)
 
@@ -1322,6 +1353,76 @@ def update_profile(request, user_id):
     return render(request, "update_profile.html", context)
 
 
+@login_required
+def toggle_sold_out_product(request, product_id):
+    """Toggle sold out status for a product"""
+    product = get_object_or_404(Product, id=product_id)
+    
+    # Check if user owns this product
+    if product.user_vendor != request.user:
+        messages.error(request, "You are not authorized to modify this product.")
+        return redirect("store_app:profile")
+    
+    # Toggle sold out status
+    product.sold_out = not product.sold_out
+    product.save()
+    
+    status_text = "marked as sold out" if product.sold_out else "marked as available"
+    messages.success(request, f"Product '{product.name}' has been {status_text}.")
+    return redirect("store_app:profile")
+
+
+@login_required
+def toggle_sold_out_service(request, service_id):
+    """Toggle sold out status for a service"""
+    service = get_object_or_404(Service, id=service_id)
+    
+    # Check if user owns this service
+    if service.user_provider != request.user:
+        messages.error(request, "You are not authorized to modify this service.")
+        return redirect("store_app:profile")
+    
+    # Toggle sold out status
+    service.sold_out = not service.sold_out
+    service.save()
+    
+    status_text = "marked as sold out" if service.sold_out else "marked as available"
+    messages.success(request, f"Service '{service.name}' has been {status_text}.")
+    return redirect("store_app:profile")
+
+
+@login_required
+def delete_product(request, product_id):
+    """Delete a product listing"""
+    product = get_object_or_404(Product, id=product_id)
+    
+    # Check if user owns this product
+    if product.user_vendor != request.user:
+        messages.error(request, "You are not authorized to delete this product.")
+        return redirect("store_app:profile")
+    
+    product_name = product.name
+    product.delete()
+    messages.success(request, f"Product '{product_name}' has been deleted.")
+    return redirect("store_app:profile")
+
+
+@login_required
+def delete_service(request, service_id):
+    """Delete a service listing"""
+    service = get_object_or_404(Service, id=service_id)
+    
+    # Check if user owns this service
+    if service.user_provider != request.user:
+        messages.error(request, "You are not authorized to delete this service.")
+        return redirect("store_app:profile")
+    
+    service_name = service.name
+    service.delete()
+    messages.success(request, f"Service '{service_name}' has been deleted.")
+    return redirect("store_app:profile")
+
+
 def product_detail(request, product_id):
     """Display detailed view of a product with image slideshow"""
     product = get_object_or_404(Product, id=product_id)
@@ -1347,20 +1448,46 @@ def product_detail(request, product_id):
 
 def all_products(request):
     """Display all products"""
-    products = Product.objects.all()
+    products = Product.objects.all().order_by("-id")
+    category_slug = request.GET.get("category")
+    products_categories = ProductCategory.objects.all()
+    selected_category = None
+
+    if category_slug:
+        selected_category = get_object_or_404(ProductCategory, slug=category_slug)
+        products = products.filter(category=selected_category)
+
+    page_number = request.GET.get("page")
+    products_page_obj = Paginator(products, 12).get_page(page_number)
     context = {
-        "products": products,
+        "products_page_obj": products_page_obj,
         "user": request.user,
+        "products_categories": products_categories,
+        "services_categories": ServiceCategory.objects.all(),
+        "selected_category": selected_category,
     }
     return render(request, "all_products.html", context)
 
 
 def all_services(request):
     """Display all services"""
-    services = Service.objects.all()
+    services = Service.objects.all().order_by("-id")
+    category_slug = request.GET.get("category")
+    services_categories = ServiceCategory.objects.all()
+    selected_category = None
+
+    if category_slug:
+        selected_category = get_object_or_404(ServiceCategory, slug=category_slug)
+        services = services.filter(category=selected_category)
+
+    page_number = request.GET.get("page")
+    services_page_obj = Paginator(services, 12).get_page(page_number)
     context = {
-        "services": services,
+        "services_page_obj": services_page_obj,
         "user": request.user,
+        "products_categories": ProductCategory.objects.all(),
+        "services_categories": services_categories,
+        "selected_category": selected_category,
     }
     return render(request, "all_services.html", context)
 
