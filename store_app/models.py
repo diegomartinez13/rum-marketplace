@@ -6,7 +6,7 @@ from django.core.validators import RegexValidator
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 class UserProfile(models.Model):
     # Link to Django's built-in User (for authentication)
@@ -17,7 +17,7 @@ class UserProfile(models.Model):
     is_seller = models.BooleanField(default=False)
     provides_service = models.BooleanField(default=False)
     profile_picture = models.ImageField(upload_to="uploads/profile_pictures/", blank=True, null=True)
-    description = models.TextField(max_length=200, blank=True, null=True)
+    description = models.TextField(max_length=200, blank=True, null=True, default="")
 
     # Email verification (for your app, separate from Django auth)
     pending_email_verification = models.BooleanField(default=True)
@@ -38,6 +38,53 @@ class UserProfile(models.Model):
         self.email_token = None
         self.email_token_expires_at = None
         self.save()
+        
+    
+    # Review system methods
+    
+    @property
+    def average_rating(self):
+        """Calculate average rating for this seller"""
+        if not self.is_seller:
+            return None
+        
+        # Use the ratings_received reverse relation
+        avg = self.ratings_received.aggregate(Avg('score'))['score__avg']
+        return round(avg, 2) if avg is not None else None
+    
+    @property
+    def total_ratings(self):
+        """Get total number of ratings received"""
+        if not self.is_seller:
+            return 0
+        return self.ratings_received.count()
+    
+    def get_rating_distribution(self):
+        """Get count of ratings for each star level"""
+        if not self.is_seller:
+            return {5: 0, 4: 0, 3: 0, 2: 0, 1: 0}
+        
+        distribution = {5: 0, 4: 0, 3: 0, 2: 0, 1: 0}
+        
+        # Using Django's ORM for efficiency
+        ratings_count = self.ratings_received.values('score').annotate(count=Count('id'))
+        
+        for item in ratings_count:
+            distribution[item['score']] = item['count']
+        
+        return distribution
+    
+    def get_rating_percentage(self, star_level):
+        """Get percentage of ratings for a specific star level"""
+        if not self.is_seller or star_level not in [1, 2, 3, 4, 5]:
+            return 0
+        
+        total = self.total_ratings
+        if total == 0:
+            return 0
+        
+        distribution = self.get_rating_distribution()
+        return (distribution[star_level] / total) * 100
 
 
 class ProductCategory(models.Model):
@@ -402,3 +449,86 @@ def create_user_profile(sender, instance, created, **kwargs):
 def save_user_profile(sender, instance, **kwargs):
     if hasattr(instance, "profile"):
         instance.profile.save()
+
+
+class SellerRating(models.Model):
+    """
+    Rating model that connects to UserProfile (for sellers only)
+    """
+    # The seller being rated (must have is_seller=True)
+    seller = models.ForeignKey(
+        UserProfile, 
+        on_delete=models.SET_NULL,    # ← Preserve ratings if seller account is deleted
+        null=True,                    # ← Permit null if seller is deleted
+        blank=True,                   # ← Permit blank in forms
+        related_name='ratings_received',  # ← CREATES THE REVERSE RELATION
+        limit_choices_to={'is_seller': True}  # Only allow ratings for sellers
+    )
+    
+    # Reviewer details (for tracking even if account is deleted)
+    seller_was_deleted = models.BooleanField(default=False)
+    original_seller_email = models.EmailField(blank=True, null=True, default=None)
+    original_seller_name = models.CharField(max_length=150, blank=True, null=True, default=None)
+    
+    # Store reviewer email as primary identifier
+    reviewer_email = models.EmailField(db_index=True)
+    reviewer_name = models.CharField(max_length=150, blank=True)
+    
+    # Link to user if they exist (optional)
+    reviewer_user = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='reviews_given'
+    )
+    
+    # Rating details
+    score = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(5)]
+    )
+    review_text = models.TextField(blank=True)
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    # Tracking for deleted accounts
+    reviewer_account_deleted = models.BooleanField(default=False)
+    original_reviewer_id = models.IntegerField(null=True, blank=True)
+    
+    
+    def __str__(self):
+        seller_name = self.original_seller_name or "Unknown Seller"
+        return f"{self.reviewer_email} - {self.score}★ for {seller_name}"
+    
+    def save(self, *args, **kwargs):
+        # Store original seller info on first save
+        if self.seller and not self.original_seller_email:
+            self.original_seller_email = self.seller.user.email
+        
+        # Mark if the seller was deleted
+        if not self.seller and not self.seller_was_deleted:
+            self.seller_was_deleted = True
+            
+        super().save(*args, **kwargs)
+        
+    def get_seller_display_name(self):
+        """Get the display name of the seller, handling deleted accounts"""
+        if self.seller:
+            return self.seller.user.get_full_name() or self.seller.user.username
+        elif self.original_seller_name:
+            return f"{self.original_seller_name} (Deleted)"
+        else:
+            return "Unknown Seller"
+
+    def get_reviewer_display_name(self):
+        """Get reviewer name for display, even if deleted"""
+        if self.reviewer_account_deleted:
+            return f"Deleted User ({self.reviewer_email})"
+        return self.reviewer_name or self.reviewer_email
+
+    class Meta:
+        # Prevent duplicate ratings from same reviewer to same seller
+        unique_together = ['original_seller_email', 'reviewer_email']
+        ordering = ['-created_at']

@@ -43,4 +43,8 @@ urlpatterns = [
         TemplateView.as_view(template_name="terms_and_conditions.html"),
         name="terms",
     ),
+    
+    path('seller/<int:seller_id>/', views.seller_public_profile, name='seller_public_profile'),
+    path('api/reviews/submit/', views.submit_review_api, name='submit_review_api'),
+    path('api/seller/<int:seller_id>/reviews/', views.get_seller_reviews_api, name='get_seller_reviews_api'),
 ]

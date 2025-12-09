@@ -208,3 +208,6 @@ __marimo__/
 
 # Media files
 media/
+
+# Docker overrides
+docker-compose.override.yml
