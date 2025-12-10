@@ -29,17 +29,12 @@
         <strong>Discussed:</strong>
         <span id="discussedItems">
         {% if mentioned_products or mentioned_services %}
-          {% for product in mentioned_products %}
-          <a href="{% url 'store_app:product_detail' product.id %}" class="text-decoration-none discussed-product" data-product-id="{{ product.id }}">{{ product.name }}</a>{% if not forloop.last or mentioned_services %}, {% endif %}
-          {% endfor %}
-          {% for service in mentioned_services %}
-          <span class="discussed-service" data-service-id="{{ service.id }}">{{ service.name }}</span>{% if not forloop.last %}, {% endif %}
-          {% endfor %}
+          {% for product in mentioned_products %}<a href="{% url 'store_app:product_detail' product.id %}" class="text-decoration-none discussed-product me-2" data-product-id="{{ product.id }}">{{ product.name }}{% if not forloop.last or mentioned_services %},{% endif %}</a>{% endfor %}{% for service in mentioned_services %}<span class="discussed-service me-2" data-service-id="{{ service.id }}">{{ service.name }}{% if not forloop.last %},{% endif %}</span>{% endfor %}
         {% else %}
           {% if conversation.product %}
-          <a href="{% url 'store_app:product_detail' conversation.product.id %}" class="text-decoration-none discussed-product" data-product-id="{{ conversation.product.id }}">{{ conversation.product.name }}</a>
+          <a href="{% url 'store_app:product_detail' conversation.product.id %}" class="text-decoration-none discussed-product me-2" data-product-id="{{ conversation.product.id }}">{{ conversation.product.name }}</a>
           {% elif conversation.service %}
-          <span class="discussed-service" data-service-id="{{ conversation.service.id }}">{{ conversation.service.name }}</span>
+          <span class="discussed-service me-2" data-service-id="{{ conversation.service.id }}">{{ conversation.service.name }}</span>
           {% endif %}
         {% endif %}
         </span>
@@ -239,16 +234,16 @@
     if (messageData.product) {
       const existingProduct = discussedItems.querySelector(`[data-product-id="${messageData.product.id}"]`);
       if (!existingProduct) {
-        // Add comma if there are existing items
-        const existingContent = discussedItems.textContent.trim();
-        if (existingContent && existingContent !== '') {
-          discussedItems.appendChild(document.createTextNode(', '));
+        // Add comma to the last existing item if there is one
+        const lastItem = discussedItems.querySelector('.discussed-product:last-of-type, .discussed-service:last-of-type');
+        if (lastItem && !lastItem.textContent.endsWith(',')) {
+          lastItem.textContent = lastItem.textContent + ',';
         }
         
         // Create new product link
         const productLink = document.createElement('a');
         productLink.href = `/product/${messageData.product.id}/`;
-        productLink.className = 'text-decoration-none discussed-product';
+        productLink.className = 'text-decoration-none discussed-product me-2';
         productLink.setAttribute('data-product-id', messageData.product.id);
         productLink.textContent = messageData.product.name;
         discussedItems.appendChild(productLink);
@@ -260,15 +255,15 @@
     if (messageData.service) {
       const existingService = discussedItems.querySelector(`[data-service-id="${messageData.service.id}"]`);
       if (!existingService) {
-        // Add comma if there are existing items
-        const existingContent = discussedItems.textContent.trim();
-        if (existingContent && existingContent !== '') {
-          discussedItems.appendChild(document.createTextNode(', '));
+        // Add comma to the last existing item if there is one
+        const lastItem = discussedItems.querySelector('.discussed-product:last-of-type, .discussed-service:last-of-type');
+        if (lastItem && !lastItem.textContent.endsWith(',')) {
+          lastItem.textContent = lastItem.textContent + ',';
         }
         
         // Create new service span
         const serviceSpan = document.createElement('span');
-        serviceSpan.className = 'discussed-service';
+        serviceSpan.className = 'discussed-service me-2';
         serviceSpan.setAttribute('data-service-id', messageData.service.id);
         serviceSpan.textContent = messageData.service.name;
         discussedItems.appendChild(serviceSpan);

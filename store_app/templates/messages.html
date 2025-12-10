@@ -77,7 +77,7 @@
                   <strong>Discussed:</strong>
                   {% if conv_data.mentioned_products %}
                     {% for product in conv_data.mentioned_products %}
-                    <a href="{% url 'store_app:product_detail' product.id %}" class="text-decoration-none text-primary">
+                    <a href="{% url 'store_app:product_detail' product.id %}" class="text-decoration-none text-primary me-2">
                       {{ product.name }}
                     </a>{% if not forloop.last %},{% endif %}
                     {% endfor %}
@@ -85,7 +85,7 @@
                   {% if conv_data.mentioned_services %}
                     {% if conv_data.mentioned_products %}, {% endif %}
                     {% for service in conv_data.mentioned_services %}
-                    <span class="text-primary">{{ service.name }}</span>{% if not forloop.last %},{% endif %}
+                    <span class="text-primary me-2">{{ service.name }}</span>{% if not forloop.last %},{% endif %}
                     {% endfor %}
                   {% endif %}
                 </small>
@@ -266,7 +266,7 @@
         });
       }
       
-      mentionedContexts.innerHTML = `<small class="text-muted"><i class="bi bi-tags me-1"></i><strong>Discussed:</strong> ${contexts.join(', ')}</small>`;
+      mentionedContexts.innerHTML = `<small class="text-muted"> <i class="bi bi-tags me-1"></i> <strong>Discussed:</strong> ${contexts.join(', ')}</small>`;
     } else if (mentionedContexts) {
       // Remove if no contexts
       mentionedContexts.remove();
