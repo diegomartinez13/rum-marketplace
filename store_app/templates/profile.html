@@ -113,7 +113,7 @@
           {% endif %}
           <div class="d-flex flex-column gap-2">
             <div class="d-flex gap-2">
-              <a href="#" class="btn btn-outline-secondary flex-fill">Edit Product Info</a>
+              <a href="{% url 'store_app:edit_product' product.id %}" class="btn btn-outline-secondary flex-fill">Edit Product Info</a>
             </div>
             <div class="d-flex gap-2">
               <a href="{% url 'store_app:toggle_sold_out_product' product.id %}" 
@@ -206,7 +206,7 @@
           {% endif %}
           <div class="d-flex flex-column gap-2">
             <div class="d-flex gap-2">
-              <a href="#" class="btn btn-outline-secondary flex-fill">Edit Service Info</a>
+              <a href="{% url 'store_app:edit_service' service.id %}" class="btn btn-outline-secondary flex-fill">Edit Service Info</a>
             </div>
             <div class="d-flex gap-2">
               <a href="{% url 'store_app:toggle_sold_out_service' service.id %}" 

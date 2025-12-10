@@ -1422,6 +1422,128 @@ def delete_service(request, service_id):
     return redirect("store_app:profile")
 
 
+@login_required
+def edit_product(request, product_id):
+    """Edit an existing product listing"""
+    product = get_object_or_404(Product, id=product_id)
+    
+    # Check if user owns this product (error handling)
+    if product.user_vendor != request.user:
+        messages.error(request, "You are not authorized to edit this product.")
+        return redirect("store_app:profile")
+    
+    categories = ProductCategory.objects.all()
+    existing_images = product.images.all()
+    
+    if request.method == "POST":
+        data = request.POST
+        product.name = data.get("name", product.name)
+        product.description = data.get("description", product.description)
+        product.price = Decimal(data.get("price") or str(product.price))
+        category_id = data.get("category")
+        if category_id:
+            product.category = get_object_or_404(ProductCategory, id=category_id)
+        discount_input = data.get("discount")
+        product.discount = (Decimal(discount_input) / Decimal("100")) * product.price if discount_input else Decimal("0.00")
+        
+        # Handle image deletions
+        images_to_delete = data.getlist("delete_images")
+        if images_to_delete:
+            ProductImage.objects.filter(id__in=images_to_delete, product=product).delete()
+        
+        # Handle new images (up to 5 total)
+        new_images = request.FILES.getlist("images")
+        current_image_count = product.images.count()
+        
+        if new_images:
+            available_slots = 5 - current_image_count
+            if len(new_images) > available_slots:
+                messages.warning(request, f"Only {available_slots} image(s) could be added (maximum 5 images per product).")
+                new_images = new_images[:available_slots]
+            
+            # Get the next order number
+            max_order = product.images.aggregate(models.Max('order'))['order__max'] or -1
+            
+            for index, img in enumerate(new_images):
+                ProductImage.objects.create(product=product, image=img, order=max_order + 1 + index)
+        
+        # If no images left after deletions, require at least one
+        if product.images.count() == 0 and not new_images:
+            messages.error(request, "A product must have at least one image.")
+            context = {
+                "product": product,
+                "categories": categories,
+                "existing_images": existing_images,
+            }
+            return render(request, "edit_product.html", context)
+        
+        product.save()
+        messages.success(request, f"Product '{product.name}' has been updated successfully!")
+        return redirect("store_app:profile")
+    
+    # Calculate discount percentage for display
+    discount_percentage = 0
+    if product.price > 0 and product.discount > 0:
+        discount_percentage = (product.discount / product.price) * 100
+    
+    context = {
+        "product": product,
+        "categories": categories,
+        "existing_images": existing_images,
+        "discount_percentage": discount_percentage,
+    }
+    return render(request, "edit_product.html", context)
+
+
+@login_required
+def edit_service(request, service_id):
+    """Edit an existing service listing"""
+    service = get_object_or_404(Service, id=service_id)
+    
+    # Check if user owns this service
+    if service.user_provider != request.user:
+        messages.error(request, "You are not authorized to edit this service.")
+        return redirect("store_app:profile")
+    
+    categories = ServiceCategory.objects.all()
+    
+    if request.method == "POST":
+        data = request.POST
+        service.name = data.get("name", service.name)
+        service.description = data.get("description", service.description)
+        service.price = Decimal(data.get("price") or str(service.price))
+        category_id = data.get("category")
+        if category_id:
+            service.category = get_object_or_404(ServiceCategory, id=category_id)
+        discount_input = data.get("discount")
+        service.discount = (Decimal(discount_input) / Decimal("100")) * service.price if discount_input else Decimal("0.00")
+        
+        # Handle image upload (optional for services)
+        if "image" in request.FILES:
+            service.image = request.FILES["image"]
+        
+        # Handle image deletion
+        if data.get("delete_image") == "true":
+            service.image.delete(save=False)
+            service.image = None
+        
+        service.save()
+        messages.success(request, f"Service '{service.name}' has been updated successfully!")
+        return redirect("store_app:profile")
+    
+    # Calculate discount percentage for display
+    discount_percentage = 0
+    if service.price > 0 and service.discount > 0:
+        discount_percentage = (service.discount / service.price) * 100
+    
+    context = {
+        "service": service,
+        "categories": categories,
+        "discount_percentage": discount_percentage,
+    }
+    return render(request, "edit_service.html", context)
+
+
 def product_detail(request, product_id):
     """Display detailed view of a product with image slideshow"""
     product = get_object_or_404(Product, id=product_id)
