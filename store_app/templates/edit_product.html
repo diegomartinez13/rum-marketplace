@@ -1,0 +1,262 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container-fluid align-items-center justify-content-center py-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      <div class="card shadow-lg">
+        <div class="card-header bg-success text-white">
+          <h2 class="card-title mb-0 text-center">
+            <i class="bi bi-pencil-square me-2"></i>Edit Product
+          </h2>
+        </div>
+        <div class="card-body">
+          <form method="POST" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="mb-3">
+              <label for="name" class="form-label">Product Name</label>
+              <input type="text" class="form-control" id="name" name="name" value="{{ product.name }}" required>
+            </div>
+            <div class="mb-3">
+              <label for="description" class="form-label">Description</label>
+              <textarea class="form-control" id="description" name="description" rows="3" required>{{ product.description }}</textarea>
+            </div>
+            <div class="mb-3">
+              <label for="price" class="form-label">Price</label>
+              <input type="number" class="form-control" id="price" name="price" step="0.01" value="{{ product.price }}" required>
+            </div>
+            <div class="mb-3">
+              <label for="category" class="form-label">Category</label>
+              <select class="form-select" id="category" name="category" required>
+                <option value="">Select a category</option>
+                {% for category in categories %}
+                  <option value="{{ category.id }}" {% if category.id == product.category.id %}selected{% endif %}>{{ category.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            
+            <!-- Existing Images -->
+            {% if existing_images %}
+            <div class="mb-3">
+              <label class="form-label">Current Images</label>
+              <div class="row" id="existingImagesContainer">
+                {% for image in existing_images %}
+                <div class="col-md-3 mb-2" id="existing-image-{{ image.id }}">
+                  <div class="card position-relative">
+                    <img src="{{ image.image.url }}" class="card-img-top" alt="Product Image {{ forloop.counter }}" style="height: 150px; object-fit: cover;">
+                    <div class="card-body p-2">
+                      <small class="text-muted">Image {{ forloop.counter }}{% if forloop.first %} (Primary){% endif %}</small>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1" onclick="markImageForDeletion({{ image.id }})" style="opacity: 0.9;">
+                      <i class="bi bi-x"></i>
+                    </button>
+                    <input type="hidden" name="delete_images" value="{{ image.id }}" disabled id="delete-input-{{ image.id }}">
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+              <div id="deletedImagesInfo" class="text-danger mt-2" style="display: none;">
+                <small><i class="bi bi-exclamation-triangle me-1"></i>Marked images will be deleted when you save changes.</small>
+              </div>
+            </div>
+            {% endif %}
+            
+            <!-- Add New Images -->
+            <div class="mb-3">
+              <label class="form-label">Add New Images</label>
+              <input type="file" class="form-control d-none" id="images" name="images" accept="image/*" multiple>
+              <div id="fileInputArea" class="border rounded p-3 bg-light">
+                <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('images').click()">
+                  <i class="bi bi-plus-circle me-1"></i>Add Images
+                </button>
+                <div class="form-text mt-2">You can add images one by one or select multiple at once. Maximum 5 images total.</div>
+              </div>
+              <div id="imagePreview" class="mt-3"></div>
+              <div id="fileCount" class="text-muted mt-2"></div>
+            </div>
+            
+            <div class="mb-3">
+              <label for="discount" class="form-label">Discount (%)</label>
+              <input type="number" class="form-control" id="discount" name="discount" step="0.01" min="0" max="100" value="{{ discount_percentage|floatformat:2 }}">
+              <div class="form-text">Optional: Enter a discount percentage between 0 and 100.</div>
+            </div>
+            <div class="d-flex gap-2">
+              <button type="submit" class="btn btn-primary text-white">
+                <i class="bi bi-check-circle me-1"></i>Save Changes
+              </button>
+              <a href="{% url 'store_app:profile' %}" class="btn btn-outline-danger">Cancel</a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Track images marked for deletion
+  let imagesToDelete = [];
+  let existingImageCount = {{ existing_images.count }};
+  
+  function markImageForDeletion(imageId) {
+    const imageContainer = document.getElementById(`existing-image-${imageId}`);
+    const deleteInput = document.getElementById(`delete-input-${imageId}`);
+    const deletedInfo = document.getElementById('deletedImagesInfo');
+    
+    if (imagesToDelete.includes(imageId)) {
+      // Unmark for deletion
+      imagesToDelete = imagesToDelete.filter(id => id !== imageId);
+      imageContainer.style.opacity = '1';
+      deleteInput.disabled = true;
+      imageContainer.querySelector('.btn-danger').innerHTML = '<i class="bi bi-x"></i>';
+      imageContainer.querySelector('.btn-danger').classList.remove('btn-secondary');
+      imageContainer.querySelector('.btn-danger').classList.add('btn-danger');
+      existingImageCount++;
+    } else {
+      // Mark for deletion
+      imagesToDelete.push(imageId);
+      imageContainer.style.opacity = '0.5';
+      deleteInput.disabled = false;
+      imageContainer.querySelector('.btn-danger').innerHTML = '<i class="bi bi-arrow-counterclockwise"></i>';
+      imageContainer.querySelector('.btn-danger').classList.remove('btn-danger');
+      imageContainer.querySelector('.btn-danger').classList.add('btn-secondary');
+      existingImageCount--;
+    }
+    
+    // Show/hide deletion warning
+    deletedInfo.style.display = imagesToDelete.length > 0 ? 'block' : 'none';
+    
+    // Update file count to reflect remaining slots
+    updateFileCount();
+  }
+  
+  // Store selected files globally
+  let selectedFiles = [];
+  
+  function updateFileCount() {
+    const fileCount = document.getElementById('fileCount');
+    const totalSlots = 5;
+    const usedSlots = existingImageCount + selectedFiles.length;
+    const availableSlots = totalSlots - existingImageCount;
+    
+    if (selectedFiles.length > 0) {
+      fileCount.innerHTML = `<strong>${selectedFiles.length} new image(s) selected</strong> (${usedSlots}/5 total)`;
+    } else if (availableSlots > 0) {
+      fileCount.innerHTML = `<span class="text-muted">You can add up to ${availableSlots} more image(s)</span>`;
+    } else {
+      fileCount.innerHTML = `<span class="text-warning">Maximum images reached. Delete existing images to add new ones.</span>`;
+    }
+  }
+  
+  // Image preview and validation
+  document.getElementById('images').addEventListener('change', function(e) {
+    const newFiles = Array.from(e.target.files);
+    const preview = document.getElementById('imagePreview');
+    
+    // Add new files to the selected files array
+    newFiles.forEach(file => {
+      if (file.type.startsWith('image/')) {
+        // Check if file already exists (by name and size)
+        const exists = selectedFiles.some(f => f.name === file.name && f.size === file.size);
+        if (!exists) {
+          selectedFiles.push(file);
+        }
+      } else {
+        alert(`File "${file.name}" is not an image. Please select only image files.`);
+      }
+    });
+    
+    // Validate total file count
+    const availableSlots = 5 - existingImageCount;
+    if (selectedFiles.length > availableSlots) {
+      alert(`You can only add ${availableSlots} more image(s). Maximum 5 images per product.`);
+      selectedFiles = selectedFiles.slice(0, availableSlots);
+    }
+    
+    // Clear and rebuild preview
+    preview.innerHTML = '';
+    
+    if (selectedFiles.length === 0) {
+      updateFileCount();
+      updateFileInput();
+      return;
+    }
+    
+    // Update file count
+    updateFileCount();
+    
+    // Display previews for all selected files
+    let loadedCount = 0;
+    selectedFiles.forEach((file, index) => {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const col = document.createElement('div');
+        col.className = 'col-md-3 mb-2';
+        col.id = `preview-${index}`;
+        col.innerHTML = `
+          <div class="card position-relative">
+            <img src="${e.target.result}" class="card-img-top" alt="Preview ${index + 1}" style="height: 150px; object-fit: cover;">
+            <div class="card-body p-2">
+              <small class="text-muted">New Image ${index + 1}</small>
+              <br><small class="text-muted" style="font-size: 0.7rem;">${file.name.length > 20 ? file.name.substring(0, 20) + '...' : file.name}</small>
+            </div>
+            <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1" onclick="removeImage(${index})" style="opacity: 0.9;">
+              <i class="bi bi-x"></i>
+            </button>
+          </div>
+        `;
+        preview.appendChild(col);
+        loadedCount++;
+        
+        // Update preview container to use row layout after first image loads
+        if (loadedCount === 1 && !preview.classList.contains('row')) {
+          preview.className = 'row mt-3';
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+    
+    // Reset the file input so it can be clicked again
+    updateFileInput();
+  });
+  
+  function removeImage(index) {
+    selectedFiles.splice(index, 1);
+    // Trigger change event to rebuild preview
+    document.getElementById('images').dispatchEvent(new Event('change'));
+  }
+  
+  function updateFileInput() {
+    // Create a new DataTransfer object to hold the files
+    const dataTransfer = new DataTransfer();
+    selectedFiles.forEach(file => {
+      dataTransfer.items.add(file);
+    });
+    document.getElementById('images').files = dataTransfer.files;
+  }
+  
+  // Validate before form submission
+  document.querySelector('form').addEventListener('submit', function(e) {
+    const totalImages = existingImageCount + selectedFiles.length;
+    
+    if (totalImages === 0) {
+      e.preventDefault();
+      alert('A product must have at least one image. Please keep at least one existing image or add a new one.');
+      return false;
+    }
+    if (totalImages > 5) {
+      e.preventDefault();
+      alert('You can only have up to 5 images per product.');
+      return false;
+    }
+    // Ensure the file input has all selected files
+    updateFileInput();
+  });
+  
+  // Initialize file count on page load
+  document.addEventListener('DOMContentLoaded', function() {
+    updateFileCount();
+  });
+</script>
+{% endblock %}
+
