@@ -868,12 +868,40 @@ def conversation_view(request, conversation_id):
             )
             # Continue with empty lists - not critical
 
+        # Get all products and services mentioned in messages (for "Discussed" section)
+        mentioned_products = []
+        mentioned_services = []
+        try:
+            mentioned_products_raw = conversation.messages.filter(
+                product__isnull=False
+            ).values_list("product", "product__name").distinct()
+            mentioned_services_raw = conversation.messages.filter(
+                service__isnull=False
+            ).values_list("service", "service__name").distinct()
+
+            # Use dict to ensure uniqueness by ID
+            products_dict = {pid: pname for pid, pname in mentioned_products_raw}
+            services_dict = {sid: sname for sid, sname in mentioned_services_raw}
+
+            # Convert to lists of dicts for easier template access
+            mentioned_products = [
+                {"id": pid, "name": pname} for pid, pname in products_dict.items()
+            ]
+            mentioned_services = [
+                {"id": sid, "name": sname} for sid, sname in services_dict.items()
+            ]
+        except Exception as e:
+            logger.warning(f"Error getting mentioned products/services: {str(e)}")
+            # Continue with empty lists - not critical
+
         context = {
             "conversation": conversation,
             "messages": messages_list,
             "other_participant": other_participant,
             "other_products": available_products,
             "other_services": available_services,
+            "mentioned_products": mentioned_products,
+            "mentioned_services": mentioned_services,
         }
         return render(request, "conversation.html", context)
     except Exception as e:

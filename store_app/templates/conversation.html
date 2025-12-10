@@ -24,17 +24,26 @@
         </a>
       </div>
 
-      {% if conversation.product or conversation.service %}
-      <div class="alert alert-info mb-4">
-        <i class="bi bi-tag me-2"></i>
-        <strong>About:</strong>
-        {% if conversation.product %}
-        <a href="{% url 'store_app:product_detail' conversation.product.id %}" class="text-decoration-none">{{ conversation.product.name }}</a>
-        {% elif conversation.service %}
-        <a href="#" class="text-decoration-none">{{ conversation.service.name }}</a>
+      <div id="discussedSection" class="alert alert-info mb-4" {% if not mentioned_products and not mentioned_services and not conversation.product and not conversation.service %}style="display: none;"{% endif %}>
+        <i class="bi bi-tags me-2"></i>
+        <strong>Discussed:</strong>
+        <span id="discussedItems">
+        {% if mentioned_products or mentioned_services %}
+          {% for product in mentioned_products %}
+          <a href="{% url 'store_app:product_detail' product.id %}" class="text-decoration-none discussed-product" data-product-id="{{ product.id }}">{{ product.name }}</a>{% if not forloop.last or mentioned_services %}, {% endif %}
+          {% endfor %}
+          {% for service in mentioned_services %}
+          <span class="discussed-service" data-service-id="{{ service.id }}">{{ service.name }}</span>{% if not forloop.last %}, {% endif %}
+          {% endfor %}
+        {% else %}
+          {% if conversation.product %}
+          <a href="{% url 'store_app:product_detail' conversation.product.id %}" class="text-decoration-none discussed-product" data-product-id="{{ conversation.product.id }}">{{ conversation.product.name }}</a>
+          {% elif conversation.service %}
+          <span class="discussed-service" data-service-id="{{ conversation.service.id }}">{{ conversation.service.name }}</span>
+          {% endif %}
         {% endif %}
+        </span>
       </div>
-      {% endif %}
 
       <!-- Messages Container -->
       <div class="card shadow-sm mb-4" style="position: relative;">
@@ -217,6 +226,62 @@
     }
   }
 
+  // Update the "Discussed" section with a new product or service
+  function updateDiscussedSection(messageData) {
+    const discussedSection = document.getElementById('discussedSection');
+    const discussedItems = document.getElementById('discussedItems');
+    
+    if (!discussedSection || !discussedItems) return;
+    
+    let needsUpdate = false;
+    
+    // Check if product needs to be added
+    if (messageData.product) {
+      const existingProduct = discussedItems.querySelector(`[data-product-id="${messageData.product.id}"]`);
+      if (!existingProduct) {
+        // Add comma if there are existing items
+        const existingContent = discussedItems.textContent.trim();
+        if (existingContent && existingContent !== '') {
+          discussedItems.appendChild(document.createTextNode(', '));
+        }
+        
+        // Create new product link
+        const productLink = document.createElement('a');
+        productLink.href = `/product/${messageData.product.id}/`;
+        productLink.className = 'text-decoration-none discussed-product';
+        productLink.setAttribute('data-product-id', messageData.product.id);
+        productLink.textContent = messageData.product.name;
+        discussedItems.appendChild(productLink);
+        needsUpdate = true;
+      }
+    }
+    
+    // Check if service needs to be added
+    if (messageData.service) {
+      const existingService = discussedItems.querySelector(`[data-service-id="${messageData.service.id}"]`);
+      if (!existingService) {
+        // Add comma if there are existing items
+        const existingContent = discussedItems.textContent.trim();
+        if (existingContent && existingContent !== '') {
+          discussedItems.appendChild(document.createTextNode(', '));
+        }
+        
+        // Create new service span
+        const serviceSpan = document.createElement('span');
+        serviceSpan.className = 'discussed-service';
+        serviceSpan.setAttribute('data-service-id', messageData.service.id);
+        serviceSpan.textContent = messageData.service.name;
+        discussedItems.appendChild(serviceSpan);
+        needsUpdate = true;
+      }
+    }
+    
+    // Show the section if it was hidden and we added something
+    if (needsUpdate && discussedSection.style.display === 'none') {
+      discussedSection.style.display = '';
+    }
+  }
+
   // Add new message to the conversation
   function addMessageToConversation(messageData) {
     const messagesContainer = document.getElementById('messagesContainer');
@@ -226,6 +291,11 @@
     const placeholder = document.getElementById('noMessagesPlaceholder');
     if (placeholder) {
       placeholder.remove();
+    }
+    
+    // Update the "Discussed" section if message has product/service
+    if (messageData.product || messageData.service) {
+      updateDiscussedSection(messageData);
     }
 
     const messageDiv = document.createElement('div');
