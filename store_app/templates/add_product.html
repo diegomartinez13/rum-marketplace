@@ -23,7 +23,11 @@
             </div>
             <div class="mb-3">
               <label for="price" class="form-label">Price</label>
-              <input type="number" class="form-control" id="price" name="price" step="0.01" required>
+              <input type="number" class="form-control" id="price" name="price" step="any" min="0" max="99999.99" required>
+              <div class="form-text">Maximum price: $99,999.99</div>
+              <div id="priceDecimalWarning" class="alert alert-warning small py-2 mt-2" style="display: none;">
+                <i class="bi bi-exclamation-triangle me-1"></i>Price can only have up to 2 decimal places. The value has been corrected. Please click Add Product again to submit.
+              </div>
             </div>
             <div class="mb-3">
               <label for="category" class="form-label">Category</label>
@@ -41,7 +45,7 @@
                 <button type="button" class="btn btn-outline-primary" onclick="document.getElementById('images').click()">
                   <i class="bi bi-plus-circle me-1"></i>Add Images
                 </button>
-                <div class="form-text mt-2">You can add images one by one or select multiple at once. Maximum 5 images. The first image will be used as the primary image.</div>
+                <div class="form-text mt-2">Images are optional. You can add up to 5 images. The first image will be used as the primary image.</div>
               </div>
               <div id="imagePreview" class="mt-3"></div>
               <div id="fileCount" class="text-muted mt-2"></div>
@@ -86,9 +90,9 @@
       }
     });
     
-    // Validate total file count
+    // Handle empty state
     if (selectedFiles.length === 0) {
-      preview.innerHTML = '<div class="alert alert-warning">Please select at least one image.</div>';
+      preview.innerHTML = '';
       fileCount.innerHTML = '';
       updateFileInput();
       return;
@@ -142,8 +146,54 @@
   
   function removeImage(index) {
     selectedFiles.splice(index, 1);
-    // Trigger change event to rebuild preview
-    document.getElementById('images').dispatchEvent(new Event('change'));
+    // Rebuild the preview
+    rebuildPreview();
+    // Update the file input
+    updateFileInput();
+  }
+  
+  function rebuildPreview() {
+    const preview = document.getElementById('imagePreview');
+    const fileCount = document.getElementById('fileCount');
+    
+    // Handle empty state
+    if (selectedFiles.length === 0) {
+      preview.innerHTML = '';
+      preview.className = '';
+      fileCount.innerHTML = '';
+      return;
+    }
+    
+    // Clear and rebuild preview
+    preview.innerHTML = '';
+    preview.className = 'row mt-3';
+    
+    // Show file count
+    fileCount.innerHTML = `<strong>${selectedFiles.length} image(s) selected</strong>`;
+    
+    // Display previews for all selected files
+    selectedFiles.forEach((file, index) => {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const col = document.createElement('div');
+        col.className = 'col-md-3 mb-2';
+        col.id = `preview-${index}`;
+        col.innerHTML = `
+          <div class="card position-relative">
+            <img src="${e.target.result}" class="card-img-top" alt="Preview ${index + 1}" style="height: 150px; object-fit: cover;">
+            <div class="card-body p-2">
+              <small class="text-muted">Image ${index + 1}${index === 0 ? ' (Primary)' : ''}</small>
+              <br><small class="text-muted" style="font-size: 0.7rem;">${file.name.length > 20 ? file.name.substring(0, 20) + '...' : file.name}</small>
+            </div>
+            <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1" onclick="removeImage(${index})" style="opacity: 0.9;">
+              <i class="bi bi-x"></i>
+            </button>
+          </div>
+        `;
+        preview.appendChild(col);
+      };
+      reader.readAsDataURL(file);
+    });
   }
   
   function updateFileInput() {
@@ -155,18 +205,38 @@
     document.getElementById('images').files = dataTransfer.files;
   }
   
+  // Hide warning when user starts typing in price field
+  document.getElementById('price').addEventListener('input', function(e) {
+    document.getElementById('priceDecimalWarning').style.display = 'none';
+  });
+
   // Validate before form submission
   document.querySelector('form').addEventListener('submit', function(e) {
-    if (selectedFiles.length === 0) {
-      e.preventDefault();
-      alert('Please select at least one image.');
-      return false;
-    }
     if (selectedFiles.length > 5) {
       e.preventDefault();
       alert('You can only upload up to 5 images.');
       return false;
     }
+    
+    // Check if price has too many decimals
+    const priceInput = document.getElementById('price');
+    const warning = document.getElementById('priceDecimalWarning');
+    const value = priceInput.value;
+    
+    if (value.includes('.')) {
+      const decimals = value.split('.')[1];
+      if (decimals && decimals.length > 2) {
+        e.preventDefault();
+        // Round to 2 decimal places
+        priceInput.value = parseFloat(value).toFixed(2);
+        warning.style.display = 'block';
+        priceInput.focus();
+        return false;
+      }
+    }
+    
+    warning.style.display = 'none';
+    
     // Ensure the file input has all selected files
     updateFileInput();
   });

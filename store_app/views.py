@@ -233,19 +233,25 @@ def add_product(request):
         name = data.get("name")
         description = data.get("description")
         price = Decimal(data.get("price") or "0")
+        
+        # Validate price doesn't exceed maximum
+        max_price = Decimal("99999.99")
+        if price > max_price:
+            messages.error(request, f"Price cannot exceed ${max_price}.")
+            context = {"categories": categories}
+            return render(request, "add_product.html", context)
+        if price < 0:
+            messages.error(request, "Price cannot be negative.")
+            context = {"categories": categories}
+            return render(request, "add_product.html", context)
+        
         category_id = data.get("category")
         category = get_object_or_404(ProductCategory, id=category_id)
         discount_input = data.get("discount")
         discount = (Decimal(discount_input) / Decimal("100")) * price if discount_input else Decimal("0.00")
         
-        # Handle multiple images (up to 5)
+        # Handle multiple images (up to 5) - images are optional
         images = request.FILES.getlist("images")
-
-        # Validate image count
-        if not images:
-            messages.error(request, "Please upload at least one image.")
-            context = {"categories": categories}
-            return render(request, "add_product.html", context)
 
         if len(images) > 5:
             messages.error(request, "You can upload a maximum of 5 images.")
@@ -253,26 +259,35 @@ def add_product(request):
             return render(request, "add_product.html", context)
 
         # Create product (use first image for backward compatibility)
-        product = Product.objects.create(
-            name=name,
-            description=description,
-            price=price,
-            category=category,
-            discount=discount,
-            image=(
-                images[0] if images else None
-            ),  # First image for backward compatibility
-            user_vendor=request.user,
-        )
+        try:
+            product = Product.objects.create(
+                name=name,
+                description=description,
+                price=price,
+                category=category,
+                discount=discount,
+                image=(
+                    images[0] if images else None
+                ),  # First image for backward compatibility
+                user_vendor=request.user,
+            )
 
-        # Save ALL images to ProductImage model
-        for index, img in enumerate(images):
-            ProductImage.objects.create(product=product, image=img, order=index)
+            # Save ALL images to ProductImage model
+            for index, img in enumerate(images):
+                ProductImage.objects.create(product=product, image=img, order=index)
 
-        messages.success(
-            request, f"Product added successfully with {len(images)} image(s)!"
-        )
-        return redirect("store_app:home")
+            messages.success(
+                request, f"Product added successfully with {len(images)} image(s)!"
+            )
+            return redirect("store_app:home")
+        except Exception as e:
+            logger.error(f"Error creating product: {str(e)}")
+            if "numeric field overflow" in str(e).lower():
+                messages.error(request, "Price value is too large. Please enter a smaller price (maximum $99,999.99).")
+            else:
+                messages.error(request, "An error occurred while creating the product. Please try again.")
+            context = {"categories": categories}
+            return render(request, "add_product.html", context)
 
     context = {"categories": categories}
     return render(request, "add_product.html", context)
@@ -286,23 +301,44 @@ def add_service(request):
         name = data.get("name")
         description = data.get("description")
         price = Decimal(data.get("price") or "0")
+        
+        # Validate price doesn't exceed maximum
+        max_price = Decimal("99999.99")
+        if price > max_price:
+            messages.error(request, f"Price cannot exceed ${max_price}.")
+            context = {"categories": categories}
+            return render(request, "add_service.html", context)
+        if price < 0:
+            messages.error(request, "Price cannot be negative.")
+            context = {"categories": categories}
+            return render(request, "add_service.html", context)
+        
         category_id = data.get("category")
         category = get_object_or_404(ServiceCategory, id=category_id)
         discount_input = data.get("discount")
         discount = (Decimal(discount_input) / Decimal("100")) * price if discount_input else Decimal("0.00")
         image = request.FILES.get("image")
 
-        Service.objects.create(
-            name=name,
-            description=description,
-            price=price,
-            category=category,
-            discount=discount,
-            image=image,
-            user_provider=request.user,  # Automatically set logged-in user as provider
-        )
-        messages.success(request, "Service added successfully!")
-        return redirect("store_app:home")
+        try:
+            Service.objects.create(
+                name=name,
+                description=description,
+                price=price,
+                category=category,
+                discount=discount,
+                image=image,
+                user_provider=request.user,  # Automatically set logged-in user as provider
+            )
+            messages.success(request, "Service added successfully!")
+            return redirect("store_app:home")
+        except Exception as e:
+            logger.error(f"Error creating service: {str(e)}")
+            if "numeric field overflow" in str(e).lower():
+                messages.error(request, "Price value is too large. Please enter a smaller price (maximum $99,999.99).")
+            else:
+                messages.error(request, "An error occurred while creating the service. Please try again.")
+            context = {"categories": categories}
+            return render(request, "add_service.html", context)
 
     context = {"categories": categories}
     return render(request, "add_service.html", context)
@@ -1467,7 +1503,28 @@ def edit_product(request, product_id):
         data = request.POST
         product.name = data.get("name", product.name)
         product.description = data.get("description", product.description)
-        product.price = Decimal(data.get("price") or str(product.price))
+        new_price = Decimal(data.get("price") or str(product.price))
+        
+        # Validate price doesn't exceed maximum
+        max_price = Decimal("99999.99")
+        if new_price > max_price:
+            messages.error(request, f"Price cannot exceed ${max_price}.")
+            context = {
+                "product": product,
+                "categories": categories,
+                "existing_images": existing_images,
+            }
+            return render(request, "edit_product.html", context)
+        if new_price < 0:
+            messages.error(request, "Price cannot be negative.")
+            context = {
+                "product": product,
+                "categories": categories,
+                "existing_images": existing_images,
+            }
+            return render(request, "edit_product.html", context)
+        
+        product.price = new_price
         category_id = data.get("category")
         if category_id:
             product.category = get_object_or_404(ProductCategory, id=category_id)
@@ -1495,19 +1552,22 @@ def edit_product(request, product_id):
             for index, img in enumerate(new_images):
                 ProductImage.objects.create(product=product, image=img, order=max_order + 1 + index)
         
-        # If no images left after deletions, require at least one
-        if product.images.count() == 0 and not new_images:
-            messages.error(request, "A product must have at least one image.")
+        try:
+            product.save()
+            messages.success(request, f"Product '{product.name}' has been updated successfully!")
+            return redirect("store_app:profile")
+        except Exception as e:
+            logger.error(f"Error updating product: {str(e)}")
+            if "numeric field overflow" in str(e).lower():
+                messages.error(request, "Price value is too large. Please enter a smaller price (maximum $99,999.99).")
+            else:
+                messages.error(request, "An error occurred while updating the product. Please try again.")
             context = {
                 "product": product,
                 "categories": categories,
                 "existing_images": existing_images,
             }
             return render(request, "edit_product.html", context)
-        
-        product.save()
-        messages.success(request, f"Product '{product.name}' has been updated successfully!")
-        return redirect("store_app:profile")
     
     # Calculate discount percentage for display
     discount_percentage = 0
@@ -1539,7 +1599,26 @@ def edit_service(request, service_id):
         data = request.POST
         service.name = data.get("name", service.name)
         service.description = data.get("description", service.description)
-        service.price = Decimal(data.get("price") or str(service.price))
+        new_price = Decimal(data.get("price") or str(service.price))
+        
+        # Validate price doesn't exceed maximum
+        max_price = Decimal("99999.99")
+        if new_price > max_price:
+            messages.error(request, f"Price cannot exceed ${max_price}.")
+            context = {
+                "service": service,
+                "categories": categories,
+            }
+            return render(request, "edit_service.html", context)
+        if new_price < 0:
+            messages.error(request, "Price cannot be negative.")
+            context = {
+                "service": service,
+                "categories": categories,
+            }
+            return render(request, "edit_service.html", context)
+        
+        service.price = new_price
         category_id = data.get("category")
         if category_id:
             service.category = get_object_or_404(ServiceCategory, id=category_id)
@@ -1555,9 +1634,21 @@ def edit_service(request, service_id):
             service.image.delete(save=False)
             service.image = None
         
-        service.save()
-        messages.success(request, f"Service '{service.name}' has been updated successfully!")
-        return redirect("store_app:profile")
+        try:
+            service.save()
+            messages.success(request, f"Service '{service.name}' has been updated successfully!")
+            return redirect("store_app:profile")
+        except Exception as e:
+            logger.error(f"Error updating service: {str(e)}")
+            if "numeric field overflow" in str(e).lower():
+                messages.error(request, "Price value is too large. Please enter a smaller price (maximum $99,999.99).")
+            else:
+                messages.error(request, "An error occurred while updating the service. Please try again.")
+            context = {
+                "service": service,
+                "categories": categories,
+            }
+            return render(request, "edit_service.html", context)
     
     # Calculate discount percentage for display
     discount_percentage = 0

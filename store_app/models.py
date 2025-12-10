@@ -113,14 +113,14 @@ class ProductCategory(models.Model):
 
 class Product(models.Model):
     name = models.CharField(max_length=50)
-    price = models.DecimalField(default=Decimal("0.00"), decimal_places=2, max_digits=6)
+    price = models.DecimalField(default=Decimal("0.00"), decimal_places=2, max_digits=7)
     category = models.ForeignKey(
         ProductCategory, on_delete=models.CASCADE, related_name="products"
     )
     description = models.TextField(max_length=250, default="", blank=True, null=True)
     image = models.ImageField(upload_to="uploads/products/", blank=True, null=True)  # Keep for backward compatibility
     discount = models.DecimalField(
-        default=Decimal("0.00"), decimal_places=2, max_digits=6
+        default=Decimal("0.00"), decimal_places=2, max_digits=7
     )
     business_vendor = models.ForeignKey(
         "Business",
@@ -192,14 +192,14 @@ class ServiceCategory(models.Model):
 
 class Service(models.Model):
     name = models.CharField(max_length=50)
-    price = models.DecimalField(default=Decimal("0.00"), decimal_places=2, max_digits=6)
+    price = models.DecimalField(default=Decimal("0.00"), decimal_places=2, max_digits=7)
     category = models.ForeignKey(
         ServiceCategory, on_delete=models.CASCADE, related_name="services"
     )
     description = models.TextField(max_length=250, default="", blank=True, null=True)
     image = models.ImageField(upload_to="uploads/services/", blank=True, null=True)
     discount = models.DecimalField(
-        default=Decimal("0.00"), decimal_places=2, max_digits=6
+        default=Decimal("0.00"), decimal_places=2, max_digits=7
     )
     business_provider = models.ForeignKey(
         "Business",

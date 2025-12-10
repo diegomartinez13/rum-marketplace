@@ -23,7 +23,11 @@
             </div>
             <div class="mb-3">
               <label for="price" class="form-label">Price</label>
-              <input type="number" class="form-control" id="price" name="price" step="0.01" value="{{ service.price }}" required>
+              <input type="number" class="form-control" id="price" name="price" step="any" min="0" max="99999.99" value="{{ service.price }}" required>
+              <div class="form-text">Maximum price: $99,999.99</div>
+              <div id="priceDecimalWarning" class="alert alert-warning small py-2 mt-2" style="display: none;">
+                <i class="bi bi-exclamation-triangle me-1"></i>Price can only have up to 2 decimal places. The value has been corrected. Please click Save Changes again to submit.
+              </div>
             </div>
             <div class="mb-3">
               <label for="category" class="form-label">Category</label>
@@ -152,6 +156,32 @@
     document.getElementById('image').value = '';
     document.getElementById('imagePreview').innerHTML = '';
   }
+
+  // Hide warning when user starts typing in price field
+  document.getElementById('price').addEventListener('input', function(e) {
+    document.getElementById('priceDecimalWarning').style.display = 'none';
+  });
+
+  // Validate before form submission
+  document.querySelector('form').addEventListener('submit', function(e) {
+    const priceInput = document.getElementById('price');
+    const warning = document.getElementById('priceDecimalWarning');
+    const value = priceInput.value;
+    
+    if (value.includes('.')) {
+      const decimals = value.split('.')[1];
+      if (decimals && decimals.length > 2) {
+        e.preventDefault();
+        // Round to 2 decimal places
+        priceInput.value = parseFloat(value).toFixed(2);
+        warning.style.display = 'block';
+        priceInput.focus();
+        return false;
+      }
+    }
+    
+    warning.style.display = 'none';
+  });
 </script>
 {% endblock %}
 
