@@ -428,12 +428,11 @@ def login_view(request):
 
                 return redirect("store_app:home")
             else:
-                messages.error(request, "Invalid email or password.")
+                messages.error(request, "Invalid email or password.", extra_tags="danger")
 
         except User.DoesNotExist:
             # Don't reveal whether email exists for security
-            messages.error(request, "Invalid email or password.")
-
+            messages.error(request, "Invalid email or password.", extra_tags="danger")
         # redirect to home if logged in successfully
         return redirect("store_app:home")
 
@@ -463,10 +462,10 @@ class SignupView(View):
 
         # Defensive checks for duplicate username/email so we can show a clear message
         if User.objects.filter(username__iexact=cd["username"]).exists():
-            messages.error(request, "That username is already taken. Please choose another.")
+            messages.error(request, "That username is already taken. Please choose another.", extra_tags="danger")
             return render(request, self.template_name, {"form": form}, status=400)
         if User.objects.filter(email__iexact=cd["email"]).exists():
-            messages.error(request, "An account with that email already exists. Try signing in or use another email.")
+            messages.error(request, "An account with that email already exists. Try signing in or use another email.", extra_tags="danger")
             return render(request, self.template_name, {"form": form}, status=400)
 
         try:
@@ -500,7 +499,7 @@ class SignupView(View):
         except Exception as e:
             # Handle unique constraint violations (username/email already exists)
             logger.exception("Error during user signup: %s", e)
-            messages.error(request, "An error occurred during registration. Please correct the errors and try again.")
+            messages.error(request, "An error occurred during registration. Please correct the errors and try again.", extra_tags="danger")
             return render(request, self.template_name, {"form": form})
 
 
@@ -563,7 +562,7 @@ class VerifyEmailView(View):
         profile.mark_verified()
 
         messages.success(request, "Email verified. You can now use all features.")
-        return render(request, "home.html", {"status": "ok"})
+        return redirect("store_app:home")
 
 
 def _send_verification_email(request, user, profile):
@@ -730,7 +729,7 @@ def conversation_view(request, conversation_id):
                         }
                     )
                 else:
-                    messages.error(request, "Failed to send message. Please try again.")
+                    messages.error(request, "Failed to send message. Please try again.", extra_tags="danger")
                     return redirect(
                         "store_app:conversation", conversation_id=conversation_id
                     )
@@ -796,7 +795,7 @@ def conversation_view(request, conversation_id):
                     {"success": False, "error": "Message cannot be empty."}
                 )
             else:
-                messages.error(request, "Message cannot be empty.")
+                messages.error(request, "Message cannot be empty.", extra_tags="danger")
 
     # Mark all messages in this conversation as read (except those sent by current user)
     try:
@@ -1122,7 +1121,7 @@ def start_conversation(request, user_id):
     other_user = get_object_or_404(User, id=user_id)
 
     if other_user == request.user:
-        messages.error(request, "You cannot start a conversation with yourself.")
+        messages.error(request, "You cannot start a conversation with yourself.", extra_tags="danger")
         return redirect("store_app:home")
 
     # Get or create conversation
@@ -1135,7 +1134,7 @@ def start_conversation(request, user_id):
         logger.error(
             f"Conversation was not saved properly for users {request.user.id} and {other_user.id}"
         )
-        messages.error(request, "Failed to create conversation. Please try again.")
+        messages.error(request, "Failed to create conversation. Please try again.", extra_tags="danger")
         return redirect("store_app:home")
 
     # Refresh from DB to ensure we have the latest data
@@ -1164,16 +1163,16 @@ def start_conversation_from_listing(request, listing_type, listing_id):
             listing = get_object_or_404(Service, id=listing_id)
             seller = listing.user_provider
         else:
-            messages.error(request, "Invalid listing type.")
+            messages.error(request, "Invalid listing type.", extra_tags="danger")
             return redirect("store_app:home")
 
         if not seller:
-            messages.error(request, "This listing has no seller.")
+            messages.error(request, "This listing has no seller.", extra_tags="danger")
             return redirect("store_app:home")
 
         if seller == request.user:
             messages.error(
-                request, "You cannot message yourself about your own listing."
+                request, "You cannot message yourself about your own listing.", extra_tags="danger"
             )
             return redirect("store_app:home")
 
@@ -1212,7 +1211,7 @@ def start_conversation_from_listing(request, listing_type, listing_id):
         )
         messages.error(
             request,
-            "An error occurred while starting the conversation. Please try again.",
+            "An error occurred while starting the conversation. Please try again.", extra_tags="danger"
         )
         return redirect("store_app:home")
 
@@ -1295,7 +1294,7 @@ def profile(request):
 def update_profile(request, user_id):
     """Update user profile information"""
     if request.user.id != user_id:
-        messages.error(request, "You are not authorized to edit this profile.")
+        messages.error(request, "You are not authorized to edit this profile.", extra_tags="danger")
         return redirect("store_app:profile")
 
     user = request.user
@@ -1360,7 +1359,7 @@ def toggle_sold_out_product(request, product_id):
     
     # Check if user owns this product
     if product.user_vendor != request.user:
-        messages.error(request, "You are not authorized to modify this product.")
+        messages.error(request, "You are not authorized to modify this product.", extra_tags="danger")
         return redirect("store_app:profile")
     
     # Toggle sold out status
@@ -1379,7 +1378,7 @@ def toggle_sold_out_service(request, service_id):
     
     # Check if user owns this service
     if service.user_provider != request.user:
-        messages.error(request, "You are not authorized to modify this service.")
+        messages.error(request, "You are not authorized to modify this service.", extra_tags="danger")
         return redirect("store_app:profile")
     
     # Toggle sold out status
@@ -1398,7 +1397,7 @@ def delete_product(request, product_id):
     
     # Check if user owns this product
     if product.user_vendor != request.user:
-        messages.error(request, "You are not authorized to delete this product.")
+        messages.error(request, "You are not authorized to delete this product.", extra_tags="danger")
         return redirect("store_app:profile")
     
     product_name = product.name
@@ -1414,7 +1413,7 @@ def delete_service(request, service_id):
     
     # Check if user owns this service
     if service.user_provider != request.user:
-        messages.error(request, "You are not authorized to delete this service.")
+        messages.error(request, "You are not authorized to delete this service.", extra_tags="danger")
         return redirect("store_app:profile")
     
     service_name = service.name
