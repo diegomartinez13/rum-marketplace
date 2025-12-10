@@ -142,7 +142,10 @@
             </button>
             <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userMenuButton">
               <li><a class="dropdown-item" href="{% url 'store_app:profile' %}">Profile</a></li>
+              {% comment %}
+              <!-- Orders Button - TODO: Implement orders functionality -->
               <li><a class="dropdown-item" href="">Orders</a></li>
+              {% endcomment %}
               <li>
                 <hr class="dropdown-divider">
               </li>
