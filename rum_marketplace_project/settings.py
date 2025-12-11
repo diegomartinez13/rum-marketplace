@@ -84,7 +84,7 @@ MIDDLEWARE = [
     # Request timing middleware - logs message request times to console
     # Use MessagingTimingMiddleware for ONLY messaging requests
     # Use RequestTimingMiddleware for ALL requests
-    "store_app.middleware.MessagingTimingMiddleware",
+    # "store_app.middleware.MessagingTimingMiddleware",
 ]
 
 ROOT_URLCONF = "rum_marketplace_project.urls"
@@ -205,3 +205,13 @@ SECURE_HSTS_PRELOAD = not DEBUG
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# Use SQLite for testing (allows running tests without PostgreSQL)
+import sys
+if 'test' in sys.argv:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': ':memory:',
+        }
+    }
