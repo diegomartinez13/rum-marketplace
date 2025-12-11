@@ -81,6 +81,10 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    # Request timing middleware - logs message request times to console
+    # Use MessagingTimingMiddleware for ONLY messaging requests
+    # Use RequestTimingMiddleware for ALL requests
+    "store_app.middleware.MessagingTimingMiddleware",
 ]
 
 ROOT_URLCONF = "rum_marketplace_project.urls"
